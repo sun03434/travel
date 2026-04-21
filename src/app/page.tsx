@@ -12,7 +12,7 @@ import { saveGuide } from '@/lib/storage';
 import { allRegions } from '@/data/regions';
 import { memberOptions } from '@/data/members';
 
-type Step = 'region' | 'member' | 'duration' | 'categories' | 'themes' | 'departure';
+type Step = 'region' | 'member' | 'duration' | 'categories' | 'themes' | 'extra';
 
 const steps: { id: Step; label: string; emoji: string }[] = [
   { id: 'region', label: '지역', emoji: '📍' },
@@ -20,7 +20,7 @@ const steps: { id: Step; label: string; emoji: string }[] = [
   { id: 'duration', label: '기간', emoji: '📅' },
   { id: 'categories', label: '카테고리', emoji: '🗂️' },
   { id: 'themes', label: '테마', emoji: '✨' },
-  { id: 'departure', label: '추가 정보', emoji: '🚗' },
+  { id: 'extra', label: '추가 정보', emoji: '💬' },
 ];
 
 const durationLabels: Record<string, string> = {
@@ -39,7 +39,6 @@ export default function HomePage() {
   const [duration, setDuration] = useState<DurationKey | ''>('');
   const [categories, setCategories] = useState<Category[]>(['attraction', 'restaurant', 'lodging']);
   const [themes, setThemes] = useState<Theme[]>([]);
-  const [departure, setDeparture] = useState('');
   const [extraRequest, setExtraRequest] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -80,7 +79,6 @@ export default function HomePage() {
       duration: duration as DurationKey,
       categories,
       themes,
-      departure: departure || undefined,
       extraRequest: extraRequest || undefined,
     };
 
@@ -163,7 +161,7 @@ export default function HomePage() {
           <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span>{steps[currentIdx].emoji}</span>
             <span>{steps[currentIdx].label}</span>
-            {currentStep === 'themes' || currentStep === 'departure' ? (
+            {currentStep === 'themes' || currentStep === 'extra' ? (
               <span className="text-sm font-normal text-gray-400">(선택)</span>
             ) : (
               <span className="text-sm font-normal text-red-400">*필수</span>
@@ -175,30 +173,17 @@ export default function HomePage() {
           {currentStep === 'duration' && <DurationSelect value={duration} onChange={setDuration} />}
           {currentStep === 'categories' && <CategoryChecks value={categories} onChange={setCategories} />}
           {currentStep === 'themes' && <ThemeChips value={themes} onChange={setThemes} />}
-          {currentStep === 'departure' && (
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">출발지</label>
-                <p className="text-xs text-gray-400 mb-2">출발지를 입력하면 각 장소의 길찾기 링크에 자동으로 적용됩니다.</p>
-                <input
-                  type="text"
-                  value={departure}
-                  onChange={(e) => setDeparture(e.target.value)}
-                  placeholder="예: 서울 강남구 테헤란로 521"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">추가 요청사항</label>
-                <p className="text-xs text-gray-400 mb-2">특별한 조건이나 요구사항이 있으면 자유롭게 작성해주세요.</p>
-                <textarea
-                  value={extraRequest}
-                  onChange={(e) => setExtraRequest(e.target.value)}
-                  placeholder="예: 채식주의자예요 / 아이가 5살이에요 / 예산이 많지 않아요 / 도보 위주로 다니고 싶어요"
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm resize-none"
-                />
-              </div>
+          {currentStep === 'extra' && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">추가 요청사항</label>
+              <p className="text-xs text-gray-400 mb-2">특별한 조건이나 요구사항이 있으면 자유롭게 작성해주세요.</p>
+              <textarea
+                value={extraRequest}
+                onChange={(e) => setExtraRequest(e.target.value)}
+                placeholder="예: 채식주의자예요 / 아이가 5살이에요 / 예산이 많지 않아요 / 도보 위주로 다니고 싶어요"
+                rows={4}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm resize-none"
+              />
             </div>
           )}
         </div>

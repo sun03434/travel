@@ -52,7 +52,6 @@ export interface GuideInputs {
   duration: DurationKey;
   categories: Category[];
   themes: Theme[];
-  departure?: string;
   extraRequest?: string;
 }
 

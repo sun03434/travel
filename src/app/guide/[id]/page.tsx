@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { Guide } from '@/types/place';
 import TimelineView from '@/components/guide/TimelineView';
-import MapView from '@/components/guide/MapView';
 import ShareBar from '@/components/guide/ShareBar';
 import { allRegions } from '@/data/regions';
 import { memberOptions } from '@/data/members';
@@ -41,7 +40,6 @@ function GuideContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const [guide, setGuide] = useState<Guide | null>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'map'>('timeline');
   const [planIdx, setPlanIdx] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -129,56 +127,35 @@ function GuideContent() {
 
           <div className="mt-3 pt-3 border-t border-white/20 text-xs text-indigo-100">
             {currentPlan.name} · 총 {totalPlaces}개 장소 · {currentPlan.days.length}일 코스
-            {guide.inputs.departure && ` · 출발지: ${guide.inputs.departure}`}
           </div>
         </div>
 
         {/* 플랜 선택 */}
         {guide.plans.length > 1 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-            {guide.plans.map((plan, idx) => (
-              <button
-                key={idx}
-                onClick={() => setPlanIdx(idx)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                  planIdx === idx
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
-                }`}
-              >
-                {plan.name}
-              </button>
-            ))}
+          <div className="mb-4">
+            <div className="grid grid-cols-3 gap-2">
+              {guide.plans.map((plan, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setPlanIdx(idx)}
+                  className={`py-2 px-1 rounded-full text-sm font-medium transition-all border ${
+                    planIdx === idx
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  {plan.name.split(':')[0].trim()}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-center text-gray-400 mt-2">
+              {currentPlan.name.split(':')[1]?.trim() ?? currentPlan.name}
+            </p>
           </div>
         )}
 
-        <div className="flex bg-white rounded-xl border border-gray-100 p-1 mb-4 shadow-sm">
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'timeline' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <span>📋</span>
-            <span>타임라인</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'map' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <span>📍</span>
-            <span>장소 목록</span>
-          </button>
-        </div>
-
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          {activeTab === 'timeline' ? (
-            <TimelineView days={currentPlan.days} inputs={guide.inputs} />
-          ) : (
-            <MapView days={currentPlan.days} inputs={guide.inputs} />
-          )}
+          <TimelineView days={currentPlan.days} inputs={guide.inputs} />
         </div>
 
         <div className="mt-6 text-center">

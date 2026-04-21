@@ -1,6 +1,7 @@
 'use client';
 
-import { Day, GuideInputs } from '@/types/place';
+import { useState } from 'react';
+import { Day, GuideInputs, Place } from '@/types/place';
 import PlaceCard from './PlaceCard';
 
 const timeLabelIcon: Record<string, string> = {
@@ -33,6 +34,7 @@ interface TimelineViewProps {
 }
 
 export default function TimelineView({ days, inputs }: TimelineViewProps) {
+  const [activeAlts, setActiveAlts] = useState<Record<string, number>>({});
 
   if (days.length === 0 || days.every((d) => d.slots.length === 0)) {
     return (
@@ -55,12 +57,7 @@ export default function TimelineView({ days, inputs }: TimelineViewProps) {
         </h3>
         <div className="space-y-2">
           {lodgings.map((slot, i) => (
-            <PlaceCard
-              key={`${slot.place.name}-${i}`}
-              place={slot.place}
-              departure={inputs.departure}
-              index={i}
-            />
+            <PlaceCard key={`${slot.place.name}-${i}`} place={slot.place} index={i} />
           ))}
         </div>
       </div>
@@ -88,32 +85,38 @@ export default function TimelineView({ days, inputs }: TimelineViewProps) {
           </div>
 
           <div className="space-y-3 ml-2 pl-6 border-l-2 border-gray-100">
-            {day.slots.map((slot, idx) => (
-              <div key={`${day.dayIndex}-${slot.timeLabel}-${slot.place.name}-${idx}`}>
-                <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border mb-1.5 ${timeLabelColor[slot.timeLabel]}`}>
-                  <span>{timeLabelIcon[slot.timeLabel]}</span>
-                  <span>{slot.timeLabel}</span>
-                </div>
-                <PlaceCard
-                  place={slot.place}
-                  departure={inputs.departure}
-                  index={idx}
-                />
-                {slot.alternatives && slot.alternatives.length > 0 && (
-                  <div className="mt-1.5 ml-2 space-y-1.5">
-                    <p className="text-xs text-gray-400 font-medium">대안 식당</p>
-                    {slot.alternatives.map((alt, altIdx) => (
-                      <div key={`${alt.name}-${altIdx}`} className="opacity-80">
-                        <PlaceCard
-                          place={alt}
-                          departure={inputs.departure}
-                        />
-                      </div>
+            {day.slots.map((slot, idx) => {
+              const slotKey = `${day.dayIndex}-${idx}`;
+              const allPlaces: Place[] = [slot.place, ...(slot.alternatives ?? [])];
+              const hasAlts = allPlaces.length > 1;
+              const activeIdx = activeAlts[slotKey] ?? 0;
+              const activePlace = allPlaces[activeIdx];
+
+              return (
+                <div key={slotKey}>
+                  <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                    <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${timeLabelColor[slot.timeLabel]}`}>
+                      <span>{timeLabelIcon[slot.timeLabel]}</span>
+                      <span>{slot.timeLabel}</span>
+                    </div>
+                    {hasAlts && allPlaces.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveAlts((prev) => ({ ...prev, [slotKey]: i }))}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-all ${
+                          activeIdx === i
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-400 border-gray-200 hover:border-indigo-300 hover:text-indigo-500'
+                        }`}
+                      >
+                        {i + 1}안
+                      </button>
                     ))}
                   </div>
-                )}
-              </div>
-            ))}
+                  <PlaceCard place={activePlace} index={idx} />
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
