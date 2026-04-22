@@ -158,6 +158,31 @@ function GuideContent() {
           <TimelineView days={currentPlan.days} inputs={guide.inputs} />
         </div>
 
+        {guide.sourceBlogUrls && guide.sourceBlogUrls.length > 0 && (
+          <details className="mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <summary className="px-5 py-3.5 text-sm font-medium text-gray-600 cursor-pointer select-none flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-blue-400">
+                <path d="M14 3v2H7v14h10v-3h2v4a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1h8zm7 7l-4 4-1.4-1.4L17.2 11H10V9h7.2l-1.6-1.6L17 6l4 4z"/>
+              </svg>
+              참고한 블로그 {guide.sourceBlogUrls.length}개
+            </summary>
+            <ul className="px-5 pb-4 space-y-2 border-t border-gray-50 pt-3">
+              {guide.sourceBlogUrls.map((blog, i) => (
+                <li key={i}>
+                  <a
+                    href={blog.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:text-blue-700 hover:underline line-clamp-1"
+                  >
+                    {blog.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
         <div className="mt-6 text-center">
           <Link
             href="/"

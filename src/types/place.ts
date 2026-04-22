@@ -29,6 +29,7 @@ export interface Place {
   address: string;
   description: string;
   naverMapUrl: string;
+  sourceUrl?: string;
   lat?: number;
   lng?: number;
   badges?: Badge[];
@@ -60,9 +61,15 @@ export interface Plan {
   days: Day[];
 }
 
+export interface SourceBlog {
+  title: string;
+  url: string;
+}
+
 export interface Guide {
   id: string;
   createdAt: string;
   inputs: GuideInputs;
   plans: Plan[];
+  sourceBlogUrls?: SourceBlog[];
 }

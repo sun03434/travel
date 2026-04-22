@@ -6,6 +6,7 @@ export interface BlogSnippet {
   description: string;
   link: string;
   postdate: string;
+  fullContent?: string;
 }
 
 const memberSearchLabel: Record<string, string> = {
@@ -98,4 +99,83 @@ export function deduplicateBlogs(blogs: BlogSnippet[]): BlogSnippet[] {
     seen.add(b.link);
     return true;
   });
+}
+
+// 네이버 블로그 URL을 모바일 URL로 변환 (SSR 콘텐츠 접근성 향상)
+function toFetchableUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes('blog.naver.com')) return url;
+
+    // ?Redirect=Log&logNo=xxx 형식 처리
+    const logNo = parsed.searchParams.get('logNo');
+    const blogId = parsed.pathname.split('/').filter(Boolean)[0];
+    if (logNo && blogId) return `https://m.blog.naver.com/${blogId}/${logNo}`;
+
+    // /blogId/logNo 경로 형식 처리
+    return url.replace('://blog.naver.com/', '://m.blog.naver.com/');
+  } catch {
+    return url;
+  }
+}
+
+function extractTextFromHtml(html: string): string {
+  const cleaned = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+
+  return cleaned
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+export async function fetchBlogContent(url: string): Promise<string | null> {
+  try {
+    const fetchUrl = toFetchableUrl(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(fetchUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('text/html')) return null;
+
+    const html = await res.text();
+    const text = extractTextFromHtml(html);
+
+    if (text.length < 150) return null;
+    return text.slice(0, 3000);
+  } catch {
+    return null;
+  }
+}
+
+export async function enrichBlogsWithContent(blogs: BlogSnippet[]): Promise<BlogSnippet[]> {
+  const results = await Promise.all(
+    blogs.map(async (blog) => {
+      const fullContent = await fetchBlogContent(blog.link);
+      return fullContent ? { ...blog, fullContent } : blog;
+    })
+  );
+  return results;
 }
