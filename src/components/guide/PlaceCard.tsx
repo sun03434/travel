@@ -50,7 +50,7 @@ export default function PlaceCard({ place, index }: PlaceCardProps) {
             </svg>
             네이버 지도
           </a>
-          {place.sourceUrl && (
+          {place.sourceUrl ? (
             <a
               href={place.sourceUrl}
               target="_blank"
@@ -62,6 +62,13 @@ export default function PlaceCard({ place, index }: PlaceCardProps) {
               </svg>
               참고 블로그
             </a>
+          ) : (
+            <span className="text-xs text-amber-500 font-medium flex items-center gap-0.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+              </svg>
+              출처 미확인
+            </span>
           )}
         </div>
       </div>

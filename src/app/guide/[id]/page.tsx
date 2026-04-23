@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { Guide } from '@/types/place';
 import TimelineView from '@/components/guide/TimelineView';
@@ -9,7 +9,7 @@ import ShareBar from '@/components/guide/ShareBar';
 import { allRegions } from '@/data/regions';
 import { memberOptions } from '@/data/members';
 import Link from 'next/link';
-import { loadHistory } from '@/lib/storage';
+import { loadHistory, saveGuide } from '@/lib/storage';
 
 const durationLabels: Record<string, string> = {
   day: '당일치기',
@@ -17,12 +17,6 @@ const durationLabels: Record<string, string> = {
   '2n3d': '2박 3일',
   '3n4d': '3박 4일',
   '4n_plus': '4박 이상',
-};
-
-const categoryLabels: Record<string, string> = {
-  attraction: '관광지',
-  restaurant: '맛집',
-  lodging: '숙소',
 };
 
 const themeLabels: Record<string, string> = {
@@ -41,7 +35,8 @@ function GuideContent() {
   const searchParams = useSearchParams();
   const [guide, setGuide] = useState<Guide | null>(null);
   const [planIdx, setPlanIdx] = useState(0);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [addingPlan, setAddingPlan] = useState(false);
+  const [addPlanError, setAddPlanError] = useState('');
 
   useEffect(() => {
     const dataParam = searchParams.get('data');
@@ -73,11 +68,44 @@ function GuideContent() {
     );
   }
 
+  const PLAN_LABELS = ['A', 'B', 'C'];
+
+  const handleAddAlternative = async () => {
+    if (!guide.blogContext || addingPlan || guide.plans.length >= 3) return;
+    setAddingPlan(true);
+    setAddPlanError('');
+    try {
+      const planLabel = PLAN_LABELS[guide.plans.length] ?? 'B';
+      const res = await fetch('/api/guide/alternative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: guide.inputs,
+          blogContext: guide.blogContext,
+          existingPlanNames: guide.plans.map((p) => p.name),
+          planLabel,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setAddPlanError(data.error ?? '생성 실패');
+        return;
+      }
+      const { plan } = await res.json();
+      const updatedGuide = { ...guide, plans: [...guide.plans, plan] };
+      setGuide(updatedGuide);
+      saveGuide(updatedGuide);
+      setPlanIdx(updatedGuide.plans.length - 1);
+    } catch {
+      setAddPlanError('네트워크 오류가 발생했습니다.');
+    } finally {
+      setAddingPlan(false);
+    }
+  };
+
   const currentPlan = guide.plans[planIdx] ?? guide.plans[0];
   const regionLabel = allRegions.find((r) => r.id === guide.inputs.region)?.label ?? guide.inputs.region;
   const memberInfo = memberOptions.find((m) => m.id === guide.inputs.member);
-  const totalPlaces = currentPlan.days.reduce((acc, d) => acc + d.slots.length, 0);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
@@ -88,11 +116,11 @@ function GuideContent() {
             </svg>
             <span className="font-bold text-gray-800">✈️ 여행 가이드</span>
           </Link>
-          <ShareBar guide={guide} contentRef={contentRef} />
+          <ShareBar guide={guide} />
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6" ref={contentRef}>
+      <main className="max-w-2xl mx-auto px-4 py-6">
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white mb-6 shadow-lg">
           <div className="flex items-start justify-between mb-3">
             <div>
@@ -113,11 +141,6 @@ function GuideContent() {
             <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-medium">
               {durationLabels[guide.inputs.duration] ?? guide.inputs.duration}
             </span>
-            {guide.inputs.categories.map((c) => (
-              <span key={c} className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-medium">
-                {categoryLabels[c]}
-              </span>
-            ))}
             {guide.inputs.themes.map((t) => (
               <span key={t} className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-medium">
                 {themeLabels[t]}
@@ -125,15 +148,12 @@ function GuideContent() {
             ))}
           </div>
 
-          <div className="mt-3 pt-3 border-t border-white/20 text-xs text-indigo-100">
-            {currentPlan.name} · 총 {totalPlaces}개 장소 · {currentPlan.days.length}일 코스
-          </div>
         </div>
 
-        {/* 플랜 선택 */}
+        {/* 플랜 선택 탭 */}
         {guide.plans.length > 1 && (
           <div className="mb-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${guide.plans.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
               {guide.plans.map((plan, idx) => (
                 <button
                   key={idx}
@@ -148,9 +168,30 @@ function GuideContent() {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-center text-gray-400 mt-2">
-              {currentPlan.name.split(':')[1]?.trim() ?? currentPlan.name}
-            </p>
+          </div>
+        )}
+
+        {/* 다른 콘셉트 추가 */}
+        {guide.blogContext && guide.plans.length < 3 && (
+          <div className="mb-4">
+            <button
+              onClick={handleAddAlternative}
+              disabled={addingPlan}
+              className="w-full py-2.5 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-sm font-medium hover:bg-indigo-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {addingPlan ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  다른 콘셉트 생성 중...
+                </>
+              ) : (
+                <>✨ 다른 콘셉트로 보기</>
+              )}
+            </button>
+            {addPlanError && <p className="text-xs text-red-500 mt-1 text-center">{addPlanError}</p>}
           </div>
         )}
 

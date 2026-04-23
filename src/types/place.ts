@@ -72,4 +72,5 @@ export interface Guide {
   inputs: GuideInputs;
   plans: Plan[];
   sourceBlogUrls?: SourceBlog[];
+  blogContext?: string;
 }

@@ -14,5 +14,8 @@ export function decodeGuide(encoded: string): Guide | null {
 
 export function buildShareUrl(guide: Guide): string {
   if (typeof window === 'undefined') return '';
-  return `${window.location.origin}/guide/shared?data=${encodeGuide(guide)}`;
+  // blogContext는 크기가 크고 공유에 불필요하므로 제외
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { blogContext: _bc, ...shareableGuide } = guide;
+  return `${window.location.origin}/guide/shared?data=${encodeGuide(shareableGuide as Guide)}`;
 }

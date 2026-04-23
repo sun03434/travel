@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import RegionSelect from '@/components/form/RegionSelect';
 import MemberSelect from '@/components/form/MemberSelect';
@@ -41,7 +41,25 @@ export default function HomePage() {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [extraRequest, setExtraRequest] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState('');
+
+  const LOADING_STAGES = [
+    '1/4  블로그 검색 중...',
+    '2/4  후기 내용 분석 중...',
+    '3/4  조건 맞는 후기 선별 중...',
+    '4/4  맞춤 일정 생성 중...',
+  ];
+  const STAGE_DELAYS_MS = [0, 5000, 13000, 21000];
+
+  useEffect(() => {
+    if (!loading) { setLoadingStage(0); return; }
+    const timers = STAGE_DELAYS_MS.map((delay, i) =>
+      setTimeout(() => setLoadingStage(i), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
@@ -127,7 +145,7 @@ export default function HomePage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">어디로 떠날까요? 🗺️</h1>
           <p className="text-gray-500">
-            지역, 멤버, 기간을 선택하면 AI가 맞춤 여행 가이드를 만들어 드려요.
+            지역, 멤버, 기간을 선택하면<br />AI가 맞춤 여행 가이드를 만들어 드려요.
           </p>
         </div>
 
@@ -210,11 +228,11 @@ export default function HomePage() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <svg className="animate-spin w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                   </svg>
-                  AI가 블로그를 검색하고 있어요...
+                  {LOADING_STAGES[loadingStage]}
                 </span>
               ) : '🗺️ 가이드 만들기'}
             </button>

@@ -45,32 +45,29 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim();
 }
 
-export function buildSearchQueries(inputs: GuideInputs): string[] {
+export function buildSearchQueries(inputs: GuideInputs): Array<{ query: string; sort: 'date' | 'sim' }> {
   const region = getRegionById(inputs.region);
   const regionName = region?.label ?? inputs.region;
   const memberLabel = memberSearchLabel[inputs.member] ?? '여행';
   const durationLabel = durationSearchLabel[inputs.duration] ?? '';
   const primaryTheme = inputs.themes[0] ? themeSearchLabel[inputs.themes[0]] : '';
 
-  const queries = [
-    `${regionName} ${memberLabel} ${durationLabel} 여행 코스`,
-    `${regionName} 여행 추천 ${primaryTheme || '명소'} 맛집`,
+  return [
+    { query: `${regionName} ${memberLabel} ${durationLabel} 여행 코스`, sort: 'date' },
+    { query: `${regionName} ${durationLabel} 추천`, sort: 'sim' },
+    { query: `${regionName} ${primaryTheme || '힐링'} 가볼만한곳`, sort: 'date' },
+    { query: `${regionName} 맛집 추천 ${memberLabel}`, sort: 'sim' },
+    { query: `${regionName} 여행 후기`, sort: 'date' },
   ];
-
-  if (inputs.categories.includes('restaurant')) {
-    queries.push(`${regionName} 맛집 추천 ${memberLabel}`);
-  }
-
-  return queries;
 }
 
-export async function searchNaverBlog(query: string, display = 5): Promise<BlogSnippet[]> {
+export async function searchNaverBlog(query: string, display = 4, sort: 'date' | 'sim' = 'date'): Promise<BlogSnippet[]> {
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) return [];
 
-  const url = `https://openapi.naver.com/v1/search/blog?query=${encodeURIComponent(query)}&display=${display}&sort=date`;
+  const url = `https://openapi.naver.com/v1/search/blog?query=${encodeURIComponent(query)}&display=${display}&sort=${sort}`;
 
   try {
     const res = await fetch(url, {
@@ -98,6 +95,18 @@ export function deduplicateBlogs(blogs: BlogSnippet[]): BlogSnippet[] {
     if (seen.has(b.link)) return false;
     seen.add(b.link);
     return true;
+  });
+}
+
+const TITLE_EXCLUDE_KEYWORDS = ['분양', '부동산', '채용', '구인', '무료배송', '협찬', '사은품', '쿠폰'];
+const TITLE_TRAVEL_KEYWORDS = ['여행', '코스', '맛집', '카페', '후기', '추천', '관광', '나들이', '방문', '투어'];
+
+export function filterBlogsByTitle(blogs: BlogSnippet[], regionName: string): BlogSnippet[] {
+  return blogs.filter((b) => {
+    if (TITLE_EXCLUDE_KEYWORDS.some((k) => b.title.includes(k))) return false;
+    const hasRegion = b.title.includes(regionName);
+    const hasTravelKeyword = TITLE_TRAVEL_KEYWORDS.some((k) => b.title.includes(k));
+    return hasRegion || hasTravelKeyword;
   });
 }
 

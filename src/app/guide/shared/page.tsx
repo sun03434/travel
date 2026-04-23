@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Guide } from '@/types/place';
 import { decodeGuide } from '@/lib/shareUrl';
@@ -26,7 +26,6 @@ function SharedGuideContent() {
   const [guide, setGuide] = useState<Guide | null>(null);
   const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState<'timeline' | 'map'>('timeline');
-  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const encoded = searchParams.get('data');
@@ -63,18 +62,17 @@ function SharedGuideContent() {
   const memberInfo = memberOptions.find((m) => m.id === guide.inputs.member);
   const [planIdx, setPlanIdx] = useState(0);
   const currentPlan = guide.plans[planIdx] ?? guide.plans[0];
-  const totalPlaces = currentPlan.days.reduce((acc, d) => acc + d.slots.length, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="font-bold text-gray-800">✈️ 여행 가이드</Link>
-          <ShareBar guide={guide} contentRef={contentRef} />
+          <ShareBar guide={guide} />
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6" ref={contentRef}>
+      <main className="max-w-2xl mx-auto px-4 py-6">
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 text-sm text-amber-700 flex items-center gap-2">
           <span>🔗</span>
           <span>공유된 여행 가이드입니다. 내 기록에 자동으로 저장되었어요.</span>
@@ -92,9 +90,6 @@ function SharedGuideContent() {
             <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-medium">
               {durationLabels[guide.inputs.duration] ?? guide.inputs.duration}
             </span>
-          </div>
-          <div className="mt-3 pt-3 border-t border-white/20 text-xs text-indigo-100">
-            {currentPlan.name} · 총 {totalPlaces}개 장소 · {currentPlan.days.length}일 코스
           </div>
         </div>
 
