@@ -78,7 +78,10 @@ async function rerankBlogsWithHaiku(
 블로그 제목: ${blog.title}
 블로그 내용: ${content.slice(0, 1500)}
 
-yes 또는 no 하나만 출력. yes = 조건에 부합하는 실제 여행 후기. no = 광고·무관한 지역·제품 리뷰·조건 불일치.`;
+yes 또는 no 하나만 출력.
+yes = ${regionName}을(를) 주요 여행지로 다루는 실제 방문 후기.
+no = ${regionName}이 아닌 다른 지역 여행기, 광고, 제품 리뷰, 조건 불일치.
+핵심: 블로그가 주로 다루는 여행지가 ${regionName}이 아니면 반드시 no.`;
 
       try {
         const res = await client.messages.create({

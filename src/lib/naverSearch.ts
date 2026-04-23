@@ -104,9 +104,12 @@ const TITLE_TRAVEL_KEYWORDS = ['여행', '코스', '맛집', '카페', '후기',
 export function filterBlogsByTitle(blogs: BlogSnippet[], regionName: string): BlogSnippet[] {
   return blogs.filter((b) => {
     if (TITLE_EXCLUDE_KEYWORDS.some((k) => b.title.includes(k))) return false;
-    const hasRegion = b.title.includes(regionName);
+    const hasRegionInTitle = b.title.includes(regionName);
+    const hasRegionInDesc = b.description.includes(regionName);
     const hasTravelKeyword = TITLE_TRAVEL_KEYWORDS.some((k) => b.title.includes(k));
-    return hasRegion || hasTravelKeyword;
+    // 지역명이 제목에 있거나, 여행 키워드가 있으면서 스니펫에도 지역명이 있어야 통과
+    // → "제천 여행 후기"처럼 여행 키워드만 있고 지역이 다른 블로그 차단
+    return hasRegionInTitle || (hasTravelKeyword && hasRegionInDesc);
   });
 }
 
