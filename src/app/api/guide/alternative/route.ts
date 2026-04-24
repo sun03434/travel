@@ -46,6 +46,7 @@ const SYSTEM_PROMPT = `당신은 한국 여행 일정 작성 도우미입니다.
 9. **JSON만 반환**: 마크다운 코드블록(\`\`\`) 절대 사용 금지.
 10. **블로그 정보 부족 시**: 확인된 장소만 넣을 것. 없는 장소 지어내지 말 것.
 11. **기존 플랜과 차별화**: 기존 플랜에서 사용된 장소는 최대한 배제하고, 다른 콘셉트와 다른 장소로 구성할 것.
+12. **지역 이탈 절대 금지**: 여행 조건의 "지역 제한" 행정구역 밖에 있는 장소는 블로그에 언급되어 있어도 일정(alternatives 포함)에 절대 넣지 말 것.
 
 ## 맛집(restaurant) 슬롯 특별 규칙
 - description에 대표 메뉴명과 가격대 포함 (예: "대표메뉴: 갈비탕 ₩15,000")
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
 
     const region = getRegionById(inputs.region);
     const regionName = region?.label ?? inputs.region;
+    const regionArea = region?.description
+      ? `${regionName} (${region.description})`
+      : regionName;
     const memberInfo = memberOptions.find((m) => m.id === inputs.member);
     const memberName = memberInfo?.label ?? inputs.member;
     const duration = durationLabel[inputs.duration] ?? inputs.duration;
@@ -85,10 +89,16 @@ export async function POST(request: Request) {
 - 테마: ${themes}
 - 현재 시즌: ${getSeasonInfo()}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
 
+## 지역 제한 (절대 준수)
+일정에 포함되는 모든 장소(alternatives 포함)는 반드시 **${regionArea}** 행정구역 내에 위치해야 합니다.
+블로그에 다른 시·군·구 장소가 있어도 일정에서 제외하세요.
+
 ## 기존 플랜 (이 플랜들과 다른 콘셉트로 구성할 것)
 ${existingPlanNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}${usedPlacesLine}
 
 ## 블로그 참고자료
+아래 블로그에 언급된 장소 중 위 지역 내 장소만 일정에 포함하세요.
+
 ${blogContext}
 
 위 여행 조건을 기반으로, 기존 플랜들과 완전히 다른 장소·다른 콘셉트의 새로운 여행 일정 1가지를 JSON으로 작성해주세요.

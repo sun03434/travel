@@ -52,6 +52,7 @@ const SYSTEM_PROMPT = `당신은 한국 여행 일정 작성 도우미입니다.
 8. **lat/lng**: 알고 있을 때만 포함. 불확실하면 생략.
 9. **JSON만 반환**: 마크다운 코드블록(\`\`\`) 절대 사용 금지.
 10. **블로그 정보 부족 시**: 확인된 장소만 넣을 것. 없는 장소 지어내지 말 것.
+11. **지역 이탈 절대 금지**: 여행 조건의 "지역 제한" 행정구역 밖에 있는 장소는 블로그에 언급되어 있어도 일정(alternatives 포함)에 절대 넣지 말 것. 블로그가 해당 지역에서 출발해 다른 지역으로 간 내용이라면, 다른 지역 장소는 모두 무시할 것.
 
 ## 맛집(restaurant) 슬롯 특별 규칙
 - description에 대표 메뉴명과 가격대 포함 (예: "대표메뉴: 갈비탕 ₩15,000")
@@ -79,21 +80,21 @@ async function rerankBlogsWithHaiku(
   const checks = await Promise.all(
     blogs.map(async (blog) => {
       const content = blog.fullContent ?? blog.description;
-      const prompt = `다음 블로그가 아래 여행 조건에 맞는 실제 여행 후기인지 판단해줘.
+      const prompt = `다음 블로그의 주요 방문 장소가 아래 지역에 해당하는지 판단해줘.
 
-조건:
-- 지역: ${regionDesc}
-- 동행: ${memberName}
-- 기간: ${duration}
-- 테마: ${themes}
+대상 지역: ${regionDesc}
 
 블로그 제목: ${blog.title}
 블로그 내용: ${content.slice(0, 1500)}
 
 yes 또는 no 하나만 출력.
-yes = 위 지역(${regionDesc})을 주요 여행지로 다루는 실제 방문 후기.
-no = 다른 지역 여행기, 광고, 제품 리뷰, 조건 불일치.
-핵심: 블로그가 주로 다루는 여행지가 ${regionDesc}에 해당하지 않으면 반드시 no.`;
+yes = 블로그에서 소개하는 방문 장소 대부분이 대상 지역(${regionDesc}) 내에 위치.
+no = 아래 중 하나라도 해당:
+ · 블로그의 주요 방문지가 대상 지역 밖 (다른 시/도/군. 예: 대상이 강남인데 춘천·포천·수원 등을 다룸)
+ · 대상 지역은 단순 출발지/경유지이고 실제 목적지가 다른 곳
+ · 광고, 협찬, 제품 리뷰, 맛집 홍보성 글
+ · 실제 방문 후기가 아닌 정보성 글
+판단 기준: 블로그에 소개된 장소들의 실제 위치가 어디인지를 보고 판단할 것.`;
 
       try {
         const res = await client.messages.create({
@@ -116,6 +117,9 @@ no = 다른 지역 여행기, 광고, 제품 리뷰, 조건 불일치.
 function buildUserMessage(inputs: GuideInputs, blogContext: string): string {
   const region = getRegionById(inputs.region);
   const regionName = region?.label ?? inputs.region;
+  const regionArea = region?.description
+    ? `${regionName} (${region.description})`
+    : regionName;
   const memberInfo = memberOptions.find((m) => m.id === inputs.member);
   const memberName = memberInfo?.label ?? inputs.member;
   const duration = durationLabel[inputs.duration] ?? inputs.duration;
@@ -130,8 +134,12 @@ function buildUserMessage(inputs: GuideInputs, blogContext: string): string {
 - 테마: ${themes}
 - 현재 시즌: ${getSeasonInfo()}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
 
+## 지역 제한 (절대 준수)
+일정에 포함되는 모든 장소(alternatives 포함)는 반드시 **${regionArea}** 행정구역 내에 위치해야 합니다.
+블로그에 포천, 춘천, 수원 등 다른 시·군·구 장소가 있어도 일정에서 제외하세요.
+
 ## 블로그 참고자료
-아래 블로그에 언급된 장소만 일정에 포함하세요. 블로그에 없는 장소는 절대 추가하지 마세요.
+아래 블로그에 언급된 장소 중 위 지역 내 장소만 일정에 포함하세요.
 
 ${blogContext}
 
