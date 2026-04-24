@@ -45,23 +45,56 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim();
 }
 
-export function buildSearchQueries(inputs: GuideInputs): Array<{ query: string; sort: 'date' | 'sim' }> {
+// 지역명에서 블로그 검색/필터에 사용할 용어 목록 추출
+// '서울 동남권' + desc '서초·강남·송파·강동' → ['서울 동남권', '서울', '서초', '강남', '송파', '강동']
+export function buildRegionTerms(inputs: GuideInputs): string[] {
   const region = getRegionById(inputs.region);
-  const regionName = region?.label ?? inputs.region;
+  const regionLabel = region?.label ?? inputs.region;
+
+  const raw: string[] = [regionLabel];
+
+  // 라벨의 공백/가운뎃점 분리 (e.g., '서울 동남권' → '서울', '동남권')
+  raw.push(...regionLabel.split(/[\s·]/).filter((p) => p.length > 1));
+
+  // description의 세부 지역명 (e.g., '서초·강남·송파·강동')
+  if (region?.description) {
+    raw.push(...region.description.split('·').map((s) => s.trim()).filter((s) => s.length > 1));
+  }
+
+  // '제주시' → '제주' 같이 시(市) 접미사 제거 버전 추가
+  const withStripped = raw.flatMap((t) =>
+    t.endsWith('시') && t.length > 2 ? [t, t.slice(0, -1)] : [t]
+  );
+
+  return [...new Set(withStripped)];
+}
+
+// 검색 쿼리에 쓸 대표 용어: sub-district가 있으면 "부모지역 첫번째서브"로
+function getPrimarySearchTerm(inputs: GuideInputs): string {
+  const region = getRegionById(inputs.region);
+  const regionLabel = region?.label ?? inputs.region;
+  if (!region?.description) return regionLabel;
+  const firstSub = region.description.split('·')[0].trim();
+  const parent = regionLabel.split(' ')[0];
+  return `${parent} ${firstSub}`;
+}
+
+export function buildSearchQueries(inputs: GuideInputs): Array<{ query: string; sort: 'date' | 'sim' }> {
+  const primaryTerm = getPrimarySearchTerm(inputs);
   const memberLabel = memberSearchLabel[inputs.member] ?? '여행';
   const durationLabel = durationSearchLabel[inputs.duration] ?? '';
   const primaryTheme = inputs.themes[0] ? themeSearchLabel[inputs.themes[0]] : '';
 
   return [
-    { query: `${regionName} ${memberLabel} ${durationLabel} 여행 코스`, sort: 'date' },
-    { query: `${regionName} ${durationLabel} 추천`, sort: 'sim' },
-    { query: `${regionName} ${primaryTheme || '힐링'} 가볼만한곳`, sort: 'date' },
-    { query: `${regionName} 맛집 추천 ${memberLabel}`, sort: 'sim' },
-    { query: `${regionName} 여행 후기`, sort: 'date' },
+    { query: `${primaryTerm} ${memberLabel} ${durationLabel} 여행 코스`, sort: 'date' },
+    { query: `${primaryTerm} ${durationLabel} 추천`, sort: 'sim' },
+    { query: `${primaryTerm} ${primaryTheme || '힐링'} 가볼만한곳`, sort: 'date' },
+    { query: `${primaryTerm} 맛집 추천 ${memberLabel}`, sort: 'sim' },
+    { query: `${primaryTerm} 여행 후기`, sort: 'date' },
   ];
 }
 
-export async function searchNaverBlog(query: string, display = 4, sort: 'date' | 'sim' = 'date'): Promise<BlogSnippet[]> {
+export async function searchNaverBlog(query: string, display = 6, sort: 'date' | 'sim' = 'date'): Promise<BlogSnippet[]> {
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
@@ -101,14 +134,13 @@ export function deduplicateBlogs(blogs: BlogSnippet[]): BlogSnippet[] {
 const TITLE_EXCLUDE_KEYWORDS = ['분양', '부동산', '채용', '구인', '무료배송', '협찬', '사은품', '쿠폰'];
 const TITLE_TRAVEL_KEYWORDS = ['여행', '코스', '맛집', '카페', '후기', '추천', '관광', '나들이', '방문', '투어'];
 
-export function filterBlogsByTitle(blogs: BlogSnippet[], regionName: string): BlogSnippet[] {
+// regionTerms: buildRegionTerms()로 만든 지역 관련 용어 목록
+export function filterBlogsByTitle(blogs: BlogSnippet[], regionTerms: string[]): BlogSnippet[] {
   return blogs.filter((b) => {
     if (TITLE_EXCLUDE_KEYWORDS.some((k) => b.title.includes(k))) return false;
-    const hasRegionInTitle = b.title.includes(regionName);
-    const hasRegionInDesc = b.description.includes(regionName);
+    const hasRegionInTitle = regionTerms.some((t) => b.title.includes(t));
+    const hasRegionInDesc = regionTerms.some((t) => b.description.includes(t));
     const hasTravelKeyword = TITLE_TRAVEL_KEYWORDS.some((k) => b.title.includes(k));
-    // 지역명이 제목에 있거나, 여행 키워드가 있으면서 스니펫에도 지역명이 있어야 통과
-    // → "제천 여행 후기"처럼 여행 키워드만 있고 지역이 다른 블로그 차단
     return hasRegionInTitle || (hasTravelKeyword && hasRegionInDesc);
   });
 }

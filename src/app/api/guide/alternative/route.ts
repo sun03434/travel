@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     const themes = inputs.themes.map((t) => themeLabel[t]).join(', ') || '없음';
 
     const usedPlacesLine = existingPlaceNames?.length
-      ? `\n\n## 이미 사용된 장소 (절대 포함 금지)\n${existingPlaceNames.join(', ')}`
+      ? `\n\n## 기존 플랜에서 사용된 장소 (가능한 한 다른 장소로 교체)\n${existingPlaceNames.join(', ')}\n※ 블로그 참고자료에 대안 장소가 없는 경우에만 일부 재사용 허용`
       : '';
 
     const userMessage = `## 여행 조건
@@ -94,7 +94,7 @@ ${blogContext}
 위 여행 조건을 기반으로, 기존 플랜들과 완전히 다른 장소·다른 콘셉트의 새로운 여행 일정 1가지를 JSON으로 작성해주세요.
 플랜 이름 형식: "안 ${planLabel}: {콘셉트명}"
 
-중요: "이미 사용된 장소"에 나열된 장소는 메인 슬롯은 물론 alternatives에도 절대 포함하지 마세요.`;
+가능한 한 기존과 다른 장소로 구성하되, 블로그에 대안이 없으면 일부 재사용 가능합니다.`;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',

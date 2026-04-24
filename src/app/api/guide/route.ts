@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Guide, GuideInputs } from '@/types/place';
-import { buildSearchQueries, searchNaverBlog, deduplicateBlogs, filterBlogsByTitle, enrichBlogsWithContent, BlogSnippet } from '@/lib/naverSearch';
+import { buildSearchQueries, buildRegionTerms, searchNaverBlog, deduplicateBlogs, filterBlogsByTitle, enrichBlogsWithContent, BlogSnippet } from '@/lib/naverSearch';
 import { getRegionById } from '@/data/regions';
 import { memberOptions } from '@/data/members';
 
@@ -65,12 +65,16 @@ timeLabel: 오전, 점심, 오후, 저녁, 숙소 중 하나. category: attracti
 async function rerankBlogsWithHaiku(
   blogs: BlogSnippet[],
   inputs: GuideInputs,
-  regionName: string
+  regionName: string,
+  regionTerms: string[]
 ): Promise<{ passed: BlogSnippet[]; removedCount: number }> {
   const memberInfo = memberOptions.find((m) => m.id === inputs.member);
   const memberName = memberInfo?.label ?? inputs.member;
   const duration = durationLabel[inputs.duration] ?? inputs.duration;
   const themes = inputs.themes.map((t) => themeLabel[t]).join(', ') || '없음';
+  // 세부 지역명 포함 (e.g. '강남, 서초, 송파, 강동')
+  const subTerms = regionTerms.filter((t) => t !== regionName).slice(0, 6);
+  const regionDesc = subTerms.length > 0 ? `${regionName} (${subTerms.join(', ')})` : regionName;
 
   const checks = await Promise.all(
     blogs.map(async (blog) => {
@@ -78,7 +82,7 @@ async function rerankBlogsWithHaiku(
       const prompt = `다음 블로그가 아래 여행 조건에 맞는 실제 여행 후기인지 판단해줘.
 
 조건:
-- 지역: ${regionName}
+- 지역: ${regionDesc}
 - 동행: ${memberName}
 - 기간: ${duration}
 - 테마: ${themes}
@@ -87,9 +91,9 @@ async function rerankBlogsWithHaiku(
 블로그 내용: ${content.slice(0, 1500)}
 
 yes 또는 no 하나만 출력.
-yes = ${regionName}을(를) 주요 여행지로 다루는 실제 방문 후기.
-no = ${regionName}이 아닌 다른 지역 여행기, 광고, 제품 리뷰, 조건 불일치.
-핵심: 블로그가 주로 다루는 여행지가 ${regionName}이 아니면 반드시 no.`;
+yes = 위 지역(${regionDesc})을 주요 여행지로 다루는 실제 방문 후기.
+no = 다른 지역 여행기, 광고, 제품 리뷰, 조건 불일치.
+핵심: 블로그가 주로 다루는 여행지가 ${regionDesc}에 해당하지 않으면 반드시 no.`;
 
       try {
         const res = await client.messages.create({
@@ -143,16 +147,17 @@ export async function POST(request: Request) {
 
     const region = getRegionById(inputs.region);
     const regionName = region?.label ?? inputs.region;
+    const regionTerms = buildRegionTerms(inputs);
 
     // Step 1: 다중 쿼리 병렬 검색 (sim/date 혼합)
     const queries = buildSearchQueries(inputs);
-    const results = await Promise.all(queries.map(({ query, sort }) => searchNaverBlog(query, 4, sort)));
+    const results = await Promise.all(queries.map(({ query, sort }) => searchNaverBlog(query, 6, sort)));
     const searchedBlogs = deduplicateBlogs(results.flat());
     console.log(`[guide][${elapsed()}] 검색: 쿼리 ${queries.length}개 → 중복 제거 후 ${searchedBlogs.length}개`);
     queries.forEach(({ query, sort }, i) => console.log(`  [Q${i + 1}/${sort}] "${query}" → ${results[i].length}건`));
 
-    // Step 2: 제목 기반 1차 필터
-    const titleFiltered = filterBlogsByTitle(searchedBlogs, regionName);
+    // Step 2: 제목 기반 1차 필터 (세부 지역명 포함 매칭)
+    const titleFiltered = filterBlogsByTitle(searchedBlogs, regionTerms);
     console.log(`[guide][${elapsed()}] 제목 필터: ${searchedBlogs.length} → ${titleFiltered.length}개 (${searchedBlogs.length - titleFiltered.length}개 제거)`);
 
     // Step 3: 본문 크롤링 (최대 12개)
@@ -162,7 +167,7 @@ export async function POST(request: Request) {
     console.log(`[guide][${elapsed()}] 크롤링: ${enrichedBlogs.length}개 중 ${crawledCount}개 본문 성공`);
 
     // Step 4: Haiku 관련도 필터 (병렬)
-    const { passed: rerankPassed, removedCount: rerankRemoved } = await rerankBlogsWithHaiku(enrichedBlogs, inputs, regionName);
+    const { passed: rerankPassed, removedCount: rerankRemoved } = await rerankBlogsWithHaiku(enrichedBlogs, inputs, regionName, regionTerms);
     console.log(`[guide][${elapsed()}] Haiku 필터: ${enrichedBlogs.length} → ${rerankPassed.length}개 (${rerankRemoved}개 제거)`);
 
     // 최대 5건으로 캡. 미달 시 크롤링 결과로 fallback
