@@ -5,6 +5,14 @@ import { memberOptions } from '@/data/members';
 
 const client = new Anthropic();
 
+function getSeasonInfo(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 3 && month <= 5) return `봄 (${month}월)`;
+  if (month >= 6 && month <= 8) return `여름 (${month}월)`;
+  if (month >= 9 && month <= 11) return `가을 (${month}월)`;
+  return `겨울 (${month}월)`;
+}
+
 const durationLabel: Record<string, string> = {
   day: '당일치기',
   '1n2d': '1박 2일',
@@ -51,10 +59,11 @@ timeLabel: 오전, 점심, 오후, 저녁, 숙소 중 하나. category: attracti
 export async function POST(request: Request) {
   const t0 = Date.now();
   try {
-    const { inputs, blogContext, existingPlanNames, planLabel }: {
+    const { inputs, blogContext, existingPlanNames, existingPlaceNames, planLabel }: {
       inputs: GuideInputs;
       blogContext: string;
       existingPlanNames: string[];
+      existingPlaceNames: string[];
       planLabel: string;
     } = await request.json();
 
@@ -65,20 +74,27 @@ export async function POST(request: Request) {
     const duration = durationLabel[inputs.duration] ?? inputs.duration;
     const themes = inputs.themes.map((t) => themeLabel[t]).join(', ') || '없음';
 
+    const usedPlacesLine = existingPlaceNames?.length
+      ? `\n\n## 이미 사용된 장소 (절대 포함 금지)\n${existingPlaceNames.join(', ')}`
+      : '';
+
     const userMessage = `## 여행 조건
 - 지역: ${regionName}
 - 동행: ${memberName}
 - 기간: ${duration}
-- 테마: ${themes}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
+- 테마: ${themes}
+- 현재 시즌: ${getSeasonInfo()}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
 
-## 기존 플랜 (이 플랜들과 다른 콘셉트 + 다른 장소로 구성할 것)
-${existingPlanNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+## 기존 플랜 (이 플랜들과 다른 콘셉트로 구성할 것)
+${existingPlanNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}${usedPlacesLine}
 
 ## 블로그 참고자료
 ${blogContext}
 
-위 여행 조건을 기반으로 기존 플랜들과 콘셉트가 다른 새로운 여행 일정 1가지를 JSON으로 작성해주세요.
-플랜 이름 형식: "안 ${planLabel}: {콘셉트명}"`;
+위 여행 조건을 기반으로, 기존 플랜들과 완전히 다른 장소·다른 콘셉트의 새로운 여행 일정 1가지를 JSON으로 작성해주세요.
+플랜 이름 형식: "안 ${planLabel}: {콘셉트명}"
+
+중요: "이미 사용된 장소"에 나열된 장소는 메인 슬롯은 물론 alternatives에도 절대 포함하지 마세요.`;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',

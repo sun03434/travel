@@ -6,6 +6,14 @@ import { memberOptions } from '@/data/members';
 
 const client = new Anthropic();
 
+function getSeasonInfo(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 3 && month <= 5) return `봄 (${month}월)`;
+  if (month >= 6 && month <= 8) return `여름 (${month}월)`;
+  if (month >= 9 && month <= 11) return `가을 (${month}월)`;
+  return `겨울 (${month}월)`;
+}
+
 const durationLabel: Record<string, string> = {
   day: '당일치기',
   '1n2d': '1박 2일',
@@ -115,7 +123,8 @@ function buildUserMessage(inputs: GuideInputs, blogContext: string): string {
 - 동행: ${memberName}
 - 기간: ${duration}
 - 카테고리: ${categories}
-- 테마: ${themes}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
+- 테마: ${themes}
+- 현재 시즌: ${getSeasonInfo()}${inputs.extraRequest ? `\n- 추가 요청: ${inputs.extraRequest}` : ''}
 
 ## 블로그 참고자료
 아래 블로그에 언급된 장소만 일정에 포함하세요. 블로그에 없는 장소는 절대 추가하지 마세요.

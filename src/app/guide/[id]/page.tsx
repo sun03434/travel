@@ -76,6 +76,14 @@ function GuideContent() {
     setAddPlanError('');
     try {
       const planLabel = PLAN_LABELS[guide.plans.length] ?? 'B';
+      const existingPlaceNames = guide.plans.flatMap((plan) =>
+        plan.days.flatMap((day) =>
+          day.slots.flatMap((slot) => [
+            slot.place.name,
+            ...(slot.alternatives?.map((a) => a.name) ?? []),
+          ])
+        )
+      );
       const res = await fetch('/api/guide/alternative', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,6 +91,7 @@ function GuideContent() {
           inputs: guide.inputs,
           blogContext: guide.blogContext,
           existingPlanNames: guide.plans.map((p) => p.name),
+          existingPlaceNames,
           planLabel,
         }),
       });
