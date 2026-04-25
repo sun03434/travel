@@ -82,12 +82,13 @@ function getPrimarySearchTerm(inputs: GuideInputs): string {
 export function buildSearchQueries(inputs: GuideInputs): Array<{ query: string; sort: 'date' | 'sim' }> {
   const primaryTerm = getPrimarySearchTerm(inputs);
   const memberLabel = memberSearchLabel[inputs.member] ?? '여행';
-  const durationLabel = durationSearchLabel[inputs.duration] ?? '';
+  // 당일치기는 기간 조건 제외 — "당일치기"가 쿼리에 들어가면 검색 범위가 너무 좁아짐
+  const durationLabel = inputs.duration === 'day' ? '' : (durationSearchLabel[inputs.duration] ?? '');
   const primaryTheme = inputs.themes[0] ? themeSearchLabel[inputs.themes[0]] : '';
 
   return [
-    { query: `${primaryTerm} ${memberLabel} ${durationLabel} 여행 코스`, sort: 'date' },
-    { query: `${primaryTerm} ${durationLabel} 추천`, sort: 'sim' },
+    { query: `${primaryTerm} ${memberLabel} ${durationLabel} 여행 코스`.replace(/\s+/g, ' ').trim(), sort: 'date' },
+    { query: `${primaryTerm} ${durationLabel} 추천`.replace(/\s+/g, ' ').trim(), sort: 'sim' },
     { query: `${primaryTerm} ${primaryTheme || '힐링'} 가볼만한곳`, sort: 'date' },
     { query: `${primaryTerm} 맛집 추천 ${memberLabel}`, sort: 'sim' },
     { query: `${primaryTerm} 여행 후기`, sort: 'date' },
