@@ -79,20 +79,41 @@ function getPrimarySearchTerm(inputs: GuideInputs): string {
   return `${parent} ${firstSub}`;
 }
 
+// 두 번째 서브지역 검색어 (예: '서울 동남권' → '서울 강남')
+function getSecondarySearchTerm(inputs: GuideInputs): string | null {
+  const region = getRegionById(inputs.region);
+  if (!region?.description) return null;
+  const subTerms = region.description.split('·').map((s) => s.trim());
+  if (subTerms.length < 2) return null;
+  const parent = (region.label ?? inputs.region).split(' ')[0];
+  return `${parent} ${subTerms[1]}`;
+}
+
 export function buildSearchQueries(inputs: GuideInputs): Array<{ query: string; sort: 'date' | 'sim' }> {
   const primaryTerm = getPrimarySearchTerm(inputs);
+  const secondaryTerm = getSecondarySearchTerm(inputs);
   const memberLabel = memberSearchLabel[inputs.member] ?? '여행';
   // 당일치기는 기간 조건 제외 — "당일치기"가 쿼리에 들어가면 검색 범위가 너무 좁아짐
   const durationLabel = inputs.duration === 'day' ? '' : (durationSearchLabel[inputs.duration] ?? '');
   const primaryTheme = inputs.themes[0] ? themeSearchLabel[inputs.themes[0]] : '';
 
-  return [
+  const queries: Array<{ query: string; sort: 'date' | 'sim' }> = [
     { query: `${primaryTerm} ${memberLabel} ${durationLabel} 여행 코스`.replace(/\s+/g, ' ').trim(), sort: 'date' },
     { query: `${primaryTerm} ${durationLabel} 추천`.replace(/\s+/g, ' ').trim(), sort: 'sim' },
     { query: `${primaryTerm} ${primaryTheme || '힐링'} 가볼만한곳`, sort: 'date' },
     { query: `${primaryTerm} 맛집 추천 ${memberLabel}`, sort: 'sim' },
     { query: `${primaryTerm} 여행 후기`, sort: 'date' },
   ];
+
+  // 서브지역이 있으면 2번째 서브지역으로도 검색 (예: '서울 동남권' → '서울 강남' 추가)
+  if (secondaryTerm) {
+    queries.push(
+      { query: `${secondaryTerm} ${memberLabel} 여행 코스`.trim(), sort: 'date' },
+      { query: `${secondaryTerm} 맛집 추천`, sort: 'sim' },
+    );
+  }
+
+  return queries;
 }
 
 export async function searchNaverBlog(query: string, display = 6, sort: 'date' | 'sim' = 'date'): Promise<BlogSnippet[]> {

@@ -200,7 +200,17 @@ function GuideContent() {
                 <>✨ 다른 콘셉트로 보기</>
               )}
             </button>
-            {addPlanError && <p className="text-xs text-red-500 mt-1 text-center">{addPlanError}</p>}
+            {addPlanError && (
+              <div className="mt-1 text-center space-y-1">
+                <p className="text-xs text-red-500">{addPlanError}</p>
+                <button
+                  onClick={handleAddAlternative}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
           </div>
         )}
 

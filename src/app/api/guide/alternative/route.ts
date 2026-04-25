@@ -65,6 +65,21 @@ const SYSTEM_PROMPT = `당신은 한국 여행 일정 작성 도우미입니다.
 ## 응답 형식 (1개 플랜만 반환)
 {"plans":[{"name":"안 {letter}: {콘셉트명}","days":[{"dayIndex":1,"slots":[{"timeLabel":"오전","place":{"name":"장소명","category":"attraction","address":"도로명 주소","description":"간결한 1~2문장.","naverMapUrl":"https://map.naver.com/v5/search/지역명+장소명","sourceUrl":"https://blog.naver.com/..."}},{"timeLabel":"점심","place":{"name":"식당명","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},"alternatives":[{"name":"대안1","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},{"name":"대안2","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."}]},{"timeLabel":"오후","place":{"name":"장소명","category":"attraction","address":"...","description":"...","naverMapUrl":"...","sourceUrl":"..."}},{"timeLabel":"저녁","place":{"name":"식당명","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},"alternatives":[{"name":"대안1","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},{"name":"대안2","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."}]},{"timeLabel":"숙소","place":{"name":"숙소명","category":"lodging","address":"...","description":"...","naverMapUrl":"...","sourceUrl":"..."}}]}]}]}`;
 
+function filterUnsourcedPlaces(plan: Plan): Plan {
+  return {
+    ...plan,
+    days: plan.days.map((day) => ({
+      ...day,
+      slots: day.slots
+        .filter((slot) => !!slot.place.sourceUrl?.trim())
+        .map((slot) => ({
+          ...slot,
+          alternatives: slot.alternatives?.filter((a) => !!a.sourceUrl?.trim()),
+        })),
+    })),
+  };
+}
+
 export async function POST(request: Request) {
   const t0 = Date.now();
   try {
@@ -138,7 +153,7 @@ ${blogContext}
 
     if (!parsed.plans?.[0]) throw new Error('No plan in alternative response');
 
-    return Response.json({ plan: parsed.plans[0] as Plan });
+    return Response.json({ plan: filterUnsourcedPlaces(parsed.plans[0] as Plan) });
   } catch (err) {
     console.error('[guide/alternative]', err);
     return Response.json({ error: '대안 플랜 생성 중 오류가 발생했습니다.' }, { status: 500 });

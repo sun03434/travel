@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Guide, GuideInputs } from '@/types/place';
+import { Guide, GuideInputs, Plan } from '@/types/place';
 import { buildSearchQueries, buildRegionTerms, searchNaverBlog, deduplicateBlogs, filterBlogsByTitle, enrichBlogsWithContent, BlogSnippet } from '@/lib/naverSearch';
 import { getRegionById } from '@/data/regions';
 import { memberOptions } from '@/data/members';
@@ -122,6 +122,21 @@ no = 아래 중 하나라도 해당:
   return { passed, removedCount: blogs.length - passed.length };
 }
 
+function filterUnsourcedPlaces(plans: Plan[]): Plan[] {
+  return plans.map((plan) => ({
+    ...plan,
+    days: plan.days.map((day) => ({
+      ...day,
+      slots: day.slots
+        .filter((slot) => !!slot.place.sourceUrl?.trim())
+        .map((slot) => ({
+          ...slot,
+          alternatives: slot.alternatives?.filter((a) => !!a.sourceUrl?.trim()),
+        })),
+    })),
+  }));
+}
+
 function buildUserMessage(inputs: GuideInputs, blogContext: string): string {
   const region = getRegionById(inputs.region);
   const regionName = region?.label ?? inputs.region;
@@ -241,7 +256,7 @@ export async function POST(request: Request) {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       inputs,
-      plans: rawGuide.plans,
+      plans: filterUnsourcedPlaces(rawGuide.plans),
       sourceBlogUrls: finalBlogs.map((b) => ({ title: b.title, url: b.link })),
       blogContext,
     };

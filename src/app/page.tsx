@@ -206,7 +206,20 @@ export default function HomePage() {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-500 mb-4 text-center">{error}</p>}
+        {error && (
+          <div className="mb-4 text-center space-y-2">
+            <p className="text-sm text-red-500">{error}</p>
+            {isLastStep && (
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="text-sm text-indigo-600 hover:text-indigo-800 underline disabled:opacity-50"
+              >
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="flex gap-3">
