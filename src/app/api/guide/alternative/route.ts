@@ -80,6 +80,8 @@ function filterUnsourcedPlaces(plan: Plan): Plan {
   };
 }
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const t0 = Date.now();
   try {

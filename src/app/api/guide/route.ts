@@ -166,8 +166,11 @@ function buildUserMessage(inputs: GuideInputs, blogContext: string): string {
 
 ${blogContext}
 
-위 조건과 블로그 참고자료를 기반으로 ${duration} 여행 일정 1가지 안(안 A)을 JSON으로 작성해주세요.`;
+위 조건과 블로그 참고자료를 기반으로 여행 일정 **딱 1가지(안 A만)** JSON으로 작성해주세요.
+⚠️ plans 배열에 플랜은 반드시 1개만 포함. 2개 이상 절대 금지.`;
 }
+
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const t0 = Date.now();
