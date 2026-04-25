@@ -54,14 +54,22 @@ const SYSTEM_PROMPT = `당신은 한국 여행 일정 작성 도우미입니다.
 10. **블로그 정보 부족 시**: 확인된 장소만 넣을 것. 없는 장소 지어내지 말 것.
 11. **지역 이탈 절대 금지**: 여행 조건의 "지역 제한" 행정구역 밖에 있는 장소는 블로그에 언급되어 있어도 일정(alternatives 포함)에 절대 넣지 말 것. 블로그가 해당 지역에서 출발해 다른 지역으로 간 내용이라면, 다른 지역 장소는 모두 무시할 것.
 
+## timeLabel → category 매핑 (절대 준수)
+- 오전 / 오후 슬롯: category는 반드시 **"attraction"**
+- 점심 / 저녁 슬롯: category는 반드시 **"restaurant"**
+- 숙소 슬롯: category는 반드시 **"lodging"**
+
+## 하루 슬롯 구성 규칙
+- 하루 슬롯 순서: 오전(attraction) → 점심(restaurant) → 오후(attraction) → 저녁(restaurant) → 숙소(lodging)
+- 하루 최대 슬롯: 5개. 당일치기·마지막 날은 숙소 없이 최대 4개
+- 블로그 자료 부족 시 슬롯 수를 줄일 것 (없는 장소 추가 금지)
+
 ## 맛집(restaurant) 슬롯 특별 규칙
 - description에 대표 메뉴명과 가격대 포함 (예: "대표메뉴: 갈비탕 ₩15,000")
 - 매 식사 슬롯마다 alternatives 배열에 2개의 대안 식당 추가 (블로그 출처 장소여야 함)
 
 ## 응답 형식 (1개 플랜만 반환)
-{"plans":[{"name":"안 A: {콘셉트명}","days":[{"dayIndex":1,"slots":[{"timeLabel":"오전","place":{"name":"장소명","category":"attraction","address":"도로명 주소","description":"간결한 1~2문장.","naverMapUrl":"https://map.naver.com/v5/search/지역명+장소명","sourceUrl":"https://blog.naver.com/..."}},{"timeLabel":"점심","place":{"name":"식당명","category":"restaurant","address":"도로명 주소","description":"대표메뉴: 메뉴명 ₩가격. 간결한 설명.","naverMapUrl":"https://map.naver.com/v5/search/지역명+식당명","sourceUrl":"https://blog.naver.com/..."},"alternatives":[{"name":"대안식당1","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},{"name":"대안식당2","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."}]}]}]}]}
-
-timeLabel: 오전, 점심, 오후, 저녁, 숙소 중 하나. category: attraction, restaurant, lodging 중 하나.`;
+{"plans":[{"name":"안 A: {콘셉트명}","days":[{"dayIndex":1,"slots":[{"timeLabel":"오전","place":{"name":"장소명","category":"attraction","address":"도로명 주소","description":"간결한 1~2문장.","naverMapUrl":"https://map.naver.com/v5/search/지역명+장소명","sourceUrl":"https://blog.naver.com/..."}},{"timeLabel":"점심","place":{"name":"식당명","category":"restaurant","address":"도로명 주소","description":"대표메뉴: 메뉴명 ₩가격. 간결한 설명.","naverMapUrl":"https://map.naver.com/v5/search/지역명+식당명","sourceUrl":"https://blog.naver.com/..."},"alternatives":[{"name":"대안식당1","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},{"name":"대안식당2","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."}]},{"timeLabel":"오후","place":{"name":"장소명","category":"attraction","address":"...","description":"...","naverMapUrl":"...","sourceUrl":"..."}},{"timeLabel":"저녁","place":{"name":"식당명","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},"alternatives":[{"name":"대안1","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."},{"name":"대안2","category":"restaurant","address":"...","description":"대표메뉴: 메뉴명 ₩가격.","naverMapUrl":"...","sourceUrl":"..."}]},{"timeLabel":"숙소","place":{"name":"숙소명","category":"lodging","address":"...","description":"...","naverMapUrl":"...","sourceUrl":"..."}}]}]}]}`;
 
 async function rerankBlogsWithHaiku(
   blogs: BlogSnippet[],
