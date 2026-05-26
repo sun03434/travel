@@ -1,4 +1,8 @@
-import type { ScheduledSlot } from '@/types/plan';
+import type { ScheduledSlot, WishPlace, WishLodging } from '@/types/plan';
+
+function fmt(p: WishPlace | WishLodging): string {
+  return `${p.lng},${p.lat},${encodeURIComponent(p.name)}`;
+}
 
 export function buildNaverRouteUrl(slots: ScheduledSlot[]): string {
   const places = slots
@@ -6,19 +10,22 @@ export function buildNaverRouteUrl(slots: ScheduledSlot[]): string {
     .map((s) => s.place!);
 
   if (places.length === 0) return 'https://map.naver.com';
+
   if (places.length === 1) {
-    const p = places[0];
-    return `https://map.naver.com/v5/search/${encodeURIComponent(p.name)}`;
+    return `https://map.naver.com/v5/search/${encodeURIComponent(places[0].name)}`;
   }
 
-  // Naver Maps directions URL with waypoints
-  // Format: /v5/directions/{slng,slat,sname}/{dlng,dlat,dname}/car
-  // Multiple waypoints: origin/wp1/wp2/.../dest/car
-  const parts = places.map(
-    (p) => `${p.lng},${p.lat},${encodeURIComponent(p.name)}`
-  );
+  // 네이버 지도 경유지 경로 URL 형식:
+  // 출발지/목적지/car?via=경유1|경유2
+  const start = fmt(places[0]);
+  const end = fmt(places[places.length - 1]);
 
-  return `https://map.naver.com/v5/directions/${parts.join('/')}/${'car'}`;
+  if (places.length === 2) {
+    return `https://map.naver.com/v5/directions/${start}/${end}/car`;
+  }
+
+  const vias = places.slice(1, -1).map(fmt).join('|');
+  return `https://map.naver.com/v5/directions/${start}/${end}/car?via=${vias}`;
 }
 
 export function buildNaverSearchUrl(name: string, address?: string): string {
