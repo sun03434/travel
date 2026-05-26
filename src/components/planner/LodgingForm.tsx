@@ -75,11 +75,8 @@ export default function LodgingForm({
 
     try {
       const params = new URLSearchParams({
-        query: `${regionName} ${trimmed} 숙소`,
-        x: String(regionLng),
-        y: String(regionLat),
-        radius: '20000',
-        category_group_code: 'AD5',
+        query: `${trimmed} 숙소`,
+        regionName,
       });
       const res = await fetch(`/api/place/search?${params}`);
       if (!res.ok) throw new Error('검색에 실패했습니다.');

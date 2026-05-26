@@ -60,9 +60,7 @@ export default function PlaceSearch({
     try {
       const params = new URLSearchParams({
         query: trimmed,
-        x: String(regionLng),
-        y: String(regionLat),
-        radius: String(SEARCH_RADIUS),
+        regionName,
       });
 
       const res = await fetch(`/api/place/search?${params}`);

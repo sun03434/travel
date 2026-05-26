@@ -2,41 +2,63 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
-const KAKAO_API = 'https://dapi.kakao.com/v2/local/search/keyword.json';
+const NAVER_API = 'https://openapi.naver.com/v1/search/local.json';
+
+function stripHtml(str: string): string {
+  return str.replace(/<[^>]+>/g, '');
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const query = searchParams.get('query');
+  const regionName = searchParams.get('regionName') ?? '';
+
   if (!query) return NextResponse.json({ error: 'query required' }, { status: 400 });
 
-  const params = new URLSearchParams({ query, size: '10' });
+  // 지역명을 쿼리에 결합해서 지역 기반 검색 효과
+  const fullQuery = regionName ? `${regionName} ${query}` : query;
 
-  const x = searchParams.get('x');
-  const y = searchParams.get('y');
-  const radius = searchParams.get('radius');
-  const page = searchParams.get('page');
-  const category = searchParams.get('category_group_code');
+  const params = new URLSearchParams({
+    query: fullQuery,
+    display: '10',
+    sort: 'random',
+  });
 
-  if (x) params.set('x', x);
-  if (y) params.set('y', y);
-  if (radius) params.set('radius', radius);
-  if (page) params.set('page', page);
-  if (category) params.set('category_group_code', category);
-
-  const res = await fetch(`${KAKAO_API}?${params}`, {
+  const res = await fetch(`${NAVER_API}?${params}`, {
     headers: {
-      Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}`,
+      'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID ?? '',
+      'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET ?? '',
     },
   });
 
   if (!res.ok) {
-    return NextResponse.json({ error: '카카오 API 오류' }, { status: res.status });
+    return NextResponse.json({ error: '네이버 검색 API 오류' }, { status: res.status });
   }
 
   const data = await res.json();
-  return NextResponse.json({
-    places: data.documents,
-    isEnd: data.meta.is_end,
-    totalCount: data.meta.total_count,
-  });
+
+  // 네이버 로컬 결과를 KakaoPlace 형태로 변환
+  const places = (data.items ?? []).map((item: {
+    title: string;
+    link: string;
+    category: string;
+    telephone: string;
+    address: string;
+    roadAddress: string;
+    mapx: string;
+    mapy: string;
+  }, idx: number) => ({
+    id: `naver_${idx}_${Date.now()}`,
+    place_name: stripHtml(item.title),
+    category_name: item.category,
+    address_name: item.address,
+    road_address_name: item.roadAddress,
+    // 네이버 좌표는 WGS84 * 10^7 → 변환
+    x: String(parseInt(item.mapx) / 10_000_000),
+    y: String(parseInt(item.mapy) / 10_000_000),
+    phone: item.telephone,
+    place_url: item.link || `https://map.naver.com/v5/search/${encodeURIComponent(stripHtml(item.title))}`,
+  }));
+
+  return NextResponse.json({ places, isEnd: true, totalCount: places.length });
 }
