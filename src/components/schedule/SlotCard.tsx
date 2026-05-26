@@ -1,0 +1,207 @@
+'use client';
+
+import { ScheduledSlot, WishPlace, WishLodging, PlaceCategory } from '@/types/plan';
+import { cn } from '@/lib/utils';
+
+interface SlotCardProps {
+  slot: ScheduledSlot;
+  onRequestRecommend: (slot: ScheduledSlot) => void;
+  onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
+}
+
+const categoryLabel: Record<PlaceCategory, string> = {
+  attraction: '관광지',
+  restaurant: '맛집',
+  cafe: '카페',
+  shopping: '쇼핑',
+};
+
+const categoryBg: Record<PlaceCategory, string> = {
+  attraction: 'bg-blue-100 text-blue-700',
+  restaurant: 'bg-orange-100 text-orange-700',
+  cafe: 'bg-amber-100 text-amber-700',
+  shopping: 'bg-pink-100 text-pink-700',
+};
+
+function isWishPlace(place: WishPlace | WishLodging): place is WishPlace {
+  return 'category' in place;
+}
+
+function isWishLodging(place: WishPlace | WishLodging): place is WishLodging {
+  return 'checkInDate' in place;
+}
+
+function TravelConnector({ minutes }: { minutes: number }) {
+  if (minutes <= 0) return null;
+  return (
+    <div className="flex items-center gap-2 px-3 py-1 my-1">
+      <div className="flex-1 h-px bg-gray-200" />
+      <span className="text-xs text-gray-400 whitespace-nowrap">🚗 약 {minutes}분</span>
+      <div className="flex-1 h-px bg-gray-200" />
+    </div>
+  );
+}
+
+function PlaceSlotCard({ slot }: { slot: ScheduledSlot }) {
+  const place = slot.place as WishPlace | WishLodging;
+  if (!place) return null;
+
+  const isPlace = isWishPlace(place);
+  const isLodging = isWishLodging(place);
+
+  return (
+    <div className={cn(
+      'rounded-xl border p-4 shadow-sm',
+      slot.type === 'lodging' || isLodging
+        ? 'bg-purple-50 border-purple-200'
+        : isPlace && categoryBg[place.category]?.startsWith('bg-blue')
+          ? 'bg-blue-50 border-blue-200'
+          : isPlace && categoryBg[place.category]?.startsWith('bg-orange')
+            ? 'bg-orange-50 border-orange-200'
+            : isPlace && categoryBg[place.category]?.startsWith('bg-amber')
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-white border-gray-200',
+    )}>
+      {/* Time row */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-500">
+          {slot.time} – {slot.endTime}
+        </span>
+        {slot.warning && (
+          <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+            <span>⚠️</span>
+            <span>{slot.warning}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Place name + category badge */}
+      <div className="flex items-start gap-2 mb-1">
+        {isLodging && (
+          <span className="mt-0.5 text-lg leading-none">🏨</span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+            <span className="font-semibold text-gray-900 text-sm leading-snug">{place.name}</span>
+            {isPlace && (
+              <span className={cn(
+                'text-xs font-medium px-2 py-0.5 rounded-full',
+                categoryBg[place.category],
+              )}>
+                {categoryLabel[place.category]}
+              </span>
+            )}
+            {isLodging && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                숙소
+              </span>
+            )}
+          </div>
+
+          {/* Address */}
+          <p className="text-xs text-gray-500 leading-relaxed">
+            {(place as WishPlace).roadAddress || place.address}
+          </p>
+
+          {/* Lodging dates */}
+          {isLodging && (
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-purple-600 font-medium">
+              <span>체크인 {(place as WishLodging).checkInDate}</span>
+              <span>→</span>
+              <span>체크아웃 {(place as WishLodging).checkOutDate}</span>
+            </div>
+          )}
+
+          {/* User note */}
+          {(place as WishPlace).userNote && (
+            <p className="mt-1.5 text-xs text-gray-500 bg-white/60 rounded-lg px-2 py-1 italic">
+              {(place as WishPlace).userNote}
+            </p>
+          )}
+
+          {/* Kakao map link */}
+          {(place as WishPlace | WishLodging).kakaoMapUrl && (
+            <a
+              href={(place as WishPlace | WishLodging).kakaoMapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-500 hover:text-indigo-700"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
+              카카오맵에서 보기
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptySlotCard({
+  slot,
+  onRequestRecommend,
+  onAddToWishlist,
+}: {
+  slot: ScheduledSlot;
+  onRequestRecommend: (slot: ScheduledSlot) => void;
+  onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
+}) {
+  return (
+    <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-400">
+          {slot.time} – {slot.endTime}
+        </span>
+      </div>
+      <p className="text-sm text-gray-400 mb-3">추가 여행지/음식점 등록 필요</p>
+      <div className="flex flex-wrap gap-2">
+        {onAddToWishlist && (
+          <>
+            <button
+              type="button"
+              onClick={() => onAddToWishlist(slot.time, 'attraction')}
+              className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              + 여행지 추가
+            </button>
+            <button
+              type="button"
+              onClick={() => onAddToWishlist(slot.time, 'restaurant')}
+              className="px-3 py-1.5 text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+            >
+              + 음식점 추가
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => onRequestRecommend(slot)}
+          className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          ✨ AI 추천 받기
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist }: SlotCardProps) {
+  return (
+    <div>
+      {(slot.travelMinFromPrev ?? 0) > 0 && (
+        <TravelConnector minutes={slot.travelMinFromPrev!} />
+      )}
+      {slot.type === 'empty' ? (
+        <EmptySlotCard
+          slot={slot}
+          onRequestRecommend={onRequestRecommend}
+          onAddToWishlist={onAddToWishlist}
+        />
+      ) : (
+        <PlaceSlotCard slot={slot} />
+      )}
+    </div>
+  );
+}

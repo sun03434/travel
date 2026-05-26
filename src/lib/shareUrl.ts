@@ -1,21 +1,31 @@
-import { Guide } from '@/types/place';
+import type { TravelPlan } from '@/types/plan';
 
-export function encodeGuide(guide: Guide): string {
-  return btoa(encodeURIComponent(JSON.stringify(guide)));
+export function encodePlan(plan: TravelPlan): string {
+  const json = JSON.stringify(plan);
+  return btoa(unescape(encodeURIComponent(json)));
 }
 
-export function decodeGuide(encoded: string): Guide | null {
+export function decodePlan(encoded: string): TravelPlan | null {
   try {
-    return JSON.parse(decodeURIComponent(atob(encoded))) as Guide;
+    const json = decodeURIComponent(escape(atob(encoded)));
+    return JSON.parse(json) as TravelPlan;
   } catch {
     return null;
   }
 }
 
-export function buildShareUrl(guide: Guide): string {
-  if (typeof window === 'undefined') return '';
-  // blogContext는 크기가 크고 공유에 불필요하므로 제외
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { blogContext: _bc, ...shareableGuide } = guide;
-  return `${window.location.origin}/guide/shared?data=${encodeGuide(shareableGuide as Guide)}`;
+export function buildShareUrl(plan: TravelPlan): string {
+  const encoded = encodePlan(plan);
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/share?d=${encoded}`;
+}
+
+export async function sharePlan(plan: TravelPlan): Promise<'shared' | 'copied'> {
+  const url = buildShareUrl(plan);
+  if (navigator.share) {
+    await navigator.share({ title: `여행 플랜 - ${plan.region.displayName}`, url });
+    return 'shared';
+  }
+  await navigator.clipboard.writeText(url);
+  return 'copied';
 }

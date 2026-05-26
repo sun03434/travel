@@ -1,78 +1,156 @@
-export interface RegionGroup {
-  label: string;
-  regions: Region[];
-}
-
-export interface Region {
-  id: string;
-  label: string;
-  description?: string;
+export interface RegionData {
+  province: string;
   lat: number;
   lng: number;
+  cities: string[];
 }
 
-export const regionGroups: RegionGroup[] = [
+export const REGIONS: RegionData[] = [
   {
-    label: '서울',
-    regions: [
-      { id: 'seoul-central', label: '서울 도심권', description: '종로·중구·용산', lat: 37.5704, lng: 126.9831 },
-      { id: 'seoul-northeast', label: '서울 동북권', description: '성동·광진·동대문·성북·강북·도봉·노원', lat: 37.6063, lng: 127.0926 },
-      { id: 'seoul-northwest', label: '서울 서북권', description: '은평·서대문·마포', lat: 37.5791, lng: 126.9368 },
-      { id: 'seoul-southwest', label: '서울 서남권', description: '양천·강서·구로·금천·영등포·동작·관악', lat: 37.5196, lng: 126.8795 },
-      { id: 'seoul-southeast', label: '서울 동남권', description: '서초·강남·송파·강동', lat: 37.5004, lng: 127.0622 },
+    province: '서울특별시',
+    lat: 37.5665,
+    lng: 126.978,
+    cities: [
+      '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구',
+      '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구',
+      '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구',
+      '은평구', '종로구', '중구', '중랑구',
     ],
   },
   {
-    label: '경기',
-    regions: [
-      { id: 'gyeonggi-north', label: '경기 북부', description: '파주·가평·포천·양주·의정부', lat: 37.8248, lng: 127.0454 },
-      { id: 'gyeonggi-south', label: '경기 남부', description: '수원·용인·화성·안양·성남', lat: 37.2636, lng: 127.0286 },
+    province: '부산광역시',
+    lat: 35.1796,
+    lng: 129.0756,
+    cities: [
+      '강서구', '금정구', '기장군', '남구', '동구', '동래구', '부산진구',
+      '북구', '사상구', '사하구', '서구', '수영구', '연제구', '영도구', '중구', '해운대구',
     ],
   },
   {
-    label: '인천 / 충청 / 대전',
-    regions: [
-      { id: 'incheon', label: '인천', lat: 37.4563, lng: 126.7052 },
-      { id: 'daejeon', label: '대전·세종', lat: 36.3504, lng: 127.3845 },
-      { id: 'chungbuk', label: '충북', lat: 36.6358, lng: 127.4913 },
-      { id: 'chungnam', label: '충남', lat: 36.6588, lng: 126.6728 },
+    province: '대구광역시',
+    lat: 35.8714,
+    lng: 128.6014,
+    cities: ['군위군', '남구', '달서구', '달성군', '동구', '북구', '서구', '중구'],
+  },
+  {
+    province: '인천광역시',
+    lat: 37.4563,
+    lng: 126.7052,
+    cities: ['강화군', '계양구', '남동구', '동구', '미추홀구', '부평구', '서구', '연수구', '옹진군', '중구'],
+  },
+  {
+    province: '광주광역시',
+    lat: 35.1595,
+    lng: 126.8526,
+    cities: ['광산구', '남구', '동구', '북구', '서구'],
+  },
+  {
+    province: '대전광역시',
+    lat: 36.3504,
+    lng: 127.3845,
+    cities: ['대덕구', '동구', '서구', '유성구', '중구'],
+  },
+  {
+    province: '울산광역시',
+    lat: 35.5384,
+    lng: 129.3114,
+    cities: ['남구', '동구', '북구', '울주군', '중구'],
+  },
+  {
+    province: '세종특별자치시',
+    lat: 36.4801,
+    lng: 127.2892,
+    cities: [],
+  },
+  {
+    province: '경기도',
+    lat: 37.4138,
+    lng: 127.5183,
+    cities: [
+      '가평군', '고양시', '과천시', '광명시', '광주시', '구리시', '군포시',
+      '김포시', '남양주시', '동두천시', '부천시', '성남시', '수원시', '시흥시',
+      '안산시', '안성시', '안양시', '양주시', '양평군', '여주시', '연천군',
+      '오산시', '용인시', '의왕시', '의정부시', '이천시', '파주시', '평택시',
+      '포천시', '하남시', '화성시',
     ],
   },
   {
-    label: '강원',
-    regions: [
-      { id: 'gangwon', label: '강원', lat: 37.8228, lng: 128.1555 },
+    province: '강원특별자치도',
+    lat: 37.8228,
+    lng: 128.1555,
+    cities: [
+      '강릉시', '고성군', '동해시', '삼척시', '속초시', '양구군', '양양군',
+      '영월군', '원주시', '인제군', '정선군', '철원군', '춘천시', '태백시',
+      '평창군', '홍천군', '화천군', '횡성군',
     ],
   },
   {
-    label: '전라 / 광주',
-    regions: [
-      { id: 'jeonbuk', label: '전북', lat: 35.7175, lng: 127.1530 },
-      { id: 'jeonnam', label: '전남', lat: 34.8161, lng: 126.4629 },
-      { id: 'gwangju', label: '광주', lat: 35.1595, lng: 126.8526 },
+    province: '충청북도',
+    lat: 36.8,
+    lng: 127.7,
+    cities: [
+      '괴산군', '단양군', '보은군', '영동군', '옥천군', '음성군',
+      '제천시', '증평군', '진천군', '청주시', '충주시',
     ],
   },
   {
-    label: '경상 / 대구 / 부산 / 울산',
-    regions: [
-      { id: 'gyeongbuk', label: '경북', lat: 36.4919, lng: 128.8889 },
-      { id: 'daegu', label: '대구', lat: 35.8714, lng: 128.6014 },
-      { id: 'gyeongnam', label: '경남', lat: 35.4606, lng: 128.2132 },
-      { id: 'busan', label: '부산', lat: 35.1796, lng: 129.0756 },
-      { id: 'ulsan', label: '울산', lat: 35.5384, lng: 129.3114 },
+    province: '충청남도',
+    lat: 36.5184,
+    lng: 126.8,
+    cities: [
+      '계룡시', '공주시', '금산군', '논산시', '당진시', '보령시',
+      '부여군', '서산시', '서천군', '아산시', '예산군', '천안시', '청양군', '태안군', '홍성군',
     ],
   },
   {
-    label: '제주',
-    regions: [
-      { id: 'jeju-city', label: '제주시', lat: 33.4996, lng: 126.5312 },
-      { id: 'jeju-seogwipo', label: '서귀포', lat: 33.2541, lng: 126.5600 },
+    province: '전북특별자치도',
+    lat: 35.7175,
+    lng: 127.153,
+    cities: [
+      '고창군', '군산시', '김제시', '남원시', '무주군', '부안군',
+      '순창군', '완주군', '익산시', '임실군', '장수군', '전주시', '정읍시', '진안군',
     ],
+  },
+  {
+    province: '전라남도',
+    lat: 34.8679,
+    lng: 126.991,
+    cities: [
+      '강진군', '고흥군', '곡성군', '광양시', '구례군', '나주시', '담양군',
+      '목포시', '무안군', '보성군', '순천시', '신안군', '여수시', '영광군',
+      '영암군', '완도군', '장성군', '장흥군', '진도군', '함평군', '해남군', '화순군',
+    ],
+  },
+  {
+    province: '경상북도',
+    lat: 36.4919,
+    lng: 128.8889,
+    cities: [
+      '경산시', '경주시', '고령군', '구미시', '김천시', '문경시', '봉화군',
+      '상주시', '성주군', '안동시', '영덕군', '영양군', '영주시', '영천시',
+      '예천군', '울릉군', '울진군', '의성군', '청도군', '청송군', '칠곡군', '포항시',
+    ],
+  },
+  {
+    province: '경상남도',
+    lat: 35.4606,
+    lng: 128.2132,
+    cities: [
+      '거제시', '거창군', '고성군', '김해시', '남해군', '밀양시', '사천시',
+      '산청군', '양산시', '의령군', '진주시', '창녕군', '창원시', '통영시',
+      '하동군', '함안군', '함양군', '합천군',
+    ],
+  },
+  {
+    province: '제주특별자치도',
+    lat: 33.4996,
+    lng: 126.5312,
+    cities: ['서귀포시', '제주시'],
   },
 ];
 
-export const allRegions = regionGroups.flatMap((g) => g.regions);
-
-export function getRegionById(id: string) {
-  return allRegions.find((r) => r.id === id);
+export function findRegionCoords(province: string): { lat: number; lng: number } {
+  const region = REGIONS.find((r) => r.province === province);
+  if (!region) return { lat: 36.5, lng: 127.5 };
+  return { lat: region.lat, lng: region.lng };
 }

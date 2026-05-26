@@ -1,59 +1,44 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Guide } from '@/types/place';
-import { loadHistory, deleteGuide, clearHistory } from '@/lib/storage';
-import { allRegions } from '@/data/regions';
-import { memberOptions } from '@/data/members';
-import Link from 'next/link';
-
-const durationLabels: Record<string, string> = {
-  day: '당일치기',
-  '1n2d': '1박 2일',
-  '2n3d': '2박 3일',
-  '3n4d': '3박 4일',
-  '4n_plus': '4박 이상',
-};
-
-const categoryLabels: Record<string, string> = {
-  attraction: '관광지',
-  restaurant: '맛집',
-  lodging: '숙소',
-};
+import { useRouter } from 'next/navigation';
+import type { TravelPlan } from '@/types/plan';
+import { listPlans, deletePlan, clearAllPlans } from '@/lib/storage';
+import { getDayCount } from '@/lib/utils';
 
 export default function HistoryPage() {
-  const [guides, setGuides] = useState<Guide[]>([]);
+  const router = useRouter();
+  const [plans, setPlans] = useState<TravelPlan[]>([]);
 
   useEffect(() => {
-    setGuides(loadHistory());
+    setPlans(listPlans());
   }, []);
 
-  const handleDelete = (id: string) => {
-    deleteGuide(id);
-    setGuides(loadHistory());
-  };
+  function handleDelete(id: string) {
+    deletePlan(id);
+    setPlans((prev) => prev.filter((p) => p.id !== id));
+  }
 
-  const handleClear = () => {
-    if (confirm('모든 가이드 기록을 삭제할까요?')) {
-      clearHistory();
-      setGuides([]);
-    }
-  };
+  function handleClear() {
+    if (!confirm('저장된 모든 플랜을 삭제할까요?')) return;
+    clearAllPlans();
+    setPlans([]);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-800">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            <span className="font-bold text-gray-800">✈️ 여행 가이드</span>
-          </Link>
-          {guides.length > 0 && (
+          <div>
+            <button onClick={() => router.push('/')} className="text-sm text-blue-600 hover:underline mb-0.5">
+              ← 플래너로 돌아가기
+            </button>
+            <h1 className="text-base font-bold text-gray-900">내 플랜 목록</h1>
+          </div>
+          {plans.length > 0 && (
             <button
               onClick={handleClear}
-              className="text-xs text-red-400 hover:text-red-600"
+              className="text-sm text-red-500 hover:text-red-700"
             >
               전체 삭제
             </button>
@@ -62,91 +47,63 @@ export default function HistoryPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">📁 내 가이드 기록</h1>
-
-        {guides.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-5xl mb-4">🗺️</p>
-            <p className="text-gray-500 mb-2">아직 만든 가이드가 없어요.</p>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-indigo-600 text-white rounded-full text-sm font-medium hover:bg-indigo-700"
+        {plans.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-4xl mb-3">✈️</p>
+            <p className="text-base font-medium">저장된 플랜이 없습니다.</p>
+            <button
+              onClick={() => router.push('/')}
+              className="mt-4 px-5 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors"
             >
-              ✨ 첫 가이드 만들기
-            </Link>
+              새 플랜 만들기
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
-            {guides.map((guide) => {
-              const regionLabel =
-                allRegions.find((r) => r.id === guide.inputs.region)?.label ?? guide.inputs.region;
-              const memberInfo = memberOptions.find((m) => m.id === guide.inputs.member);
-              const totalPlaces = guide.plans[0]?.days.reduce((acc, d) => acc + d.slots.length, 0) ?? 0;
-
+            {plans.map((plan) => {
+              const dayCount = getDayCount(plan.period.startDate, plan.period.endDate);
+              const nightCount = dayCount - 1;
+              const hasSchedule = plan.schedule.length > 0;
               return (
                 <div
-                  key={guide.id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                  key={plan.id}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between gap-3"
                 >
-                  <Link
-                    href={`/guide/${guide.id}`}
-                    className="block p-4 hover:bg-gray-50 transition-colors"
+                  <button
+                    className="flex-1 text-left min-w-0"
+                    onClick={() => router.push(`/schedule/${plan.id}`)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{memberInfo?.emoji ?? '👥'}</span>
-                        <div>
-                          <p className="font-semibold text-gray-800">
-                            📍 {regionLabel}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(guide.createdAt).toLocaleDateString('ko-KR', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="text-gray-300 mt-1"
-                      >
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      <span className="bg-indigo-50 text-indigo-600 text-xs px-2 py-0.5 rounded-full">
-                        {memberInfo?.label ?? guide.inputs.member}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-gray-900 truncate">
+                        {plan.region.displayName}
                       </span>
-                      <span className="bg-indigo-50 text-indigo-600 text-xs px-2 py-0.5 rounded-full">
-                        {durationLabels[guide.inputs.duration] ?? guide.inputs.duration}
-                      </span>
-                      {guide.inputs.categories.map((c) => (
-                        <span key={c} className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                          {categoryLabels[c]}
+                      {hasSchedule && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                          일정 완료
                         </span>
-                      ))}
-                      <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">
-                        {totalPlaces}곳
-                      </span>
+                      )}
                     </div>
-                  </Link>
-                  <div className="px-4 pb-3 flex justify-end">
-                    <button
-                      onClick={() => handleDelete(guide.id)}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      삭제
-                    </button>
-                  </div>
+                    <p className="text-xs text-gray-500">
+                      {plan.period.startDate} ~ {plan.period.endDate}
+                      {nightCount > 0 ? ` · ${nightCount}박${dayCount}일` : ' · 당일치기'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      여행지 {plan.wishlist.attractions.length}곳 ·
+                      음식점 {plan.wishlist.restaurants.length}곳 ·
+                      숙소 {plan.wishlist.lodgings.length}곳
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(plan.id)}
+                    className="flex-shrink-0 text-gray-400 hover:text-red-500 p-1"
+                    aria-label="삭제"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+                      <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                  </button>
                 </div>
               );
             })}

@@ -1,275 +1,228 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import RegionSelect from '@/components/form/RegionSelect';
-import MemberSelect from '@/components/form/MemberSelect';
-import DurationSelect from '@/components/form/DurationSelect';
-import CategoryChecks from '@/components/form/CategoryChecks';
-import ThemeChips from '@/components/form/ThemeChips';
-import { Category, DurationKey, GuideInputs, MemberTag, Theme } from '@/types/place';
-import { saveGuide } from '@/lib/storage';
-import { allRegions } from '@/data/regions';
-import { memberOptions } from '@/data/members';
+import type { Region, TravelPeriod, WishPlace, WishLodging, KakaoPlace, PlaceCategory } from '@/types/plan';
+import { generateId } from '@/lib/utils';
+import { savePlan } from '@/lib/storage';
+import RegionPicker from '@/components/planner/RegionPicker';
+import PeriodPicker from '@/components/planner/PeriodPicker';
+import PlaceSearch from '@/components/planner/PlaceSearch';
+import WishlistPanel from '@/components/planner/WishlistPanel';
+import LodgingForm from '@/components/planner/LodgingForm';
+import { kakaoPlaceToWishPlace } from '@/lib/kakao';
 
-type Step = 'region' | 'member' | 'duration' | 'categories' | 'themes' | 'extra';
-
-const steps: { id: Step; label: string; emoji: string }[] = [
-  { id: 'region', label: '지역', emoji: '📍' },
-  { id: 'member', label: '멤버', emoji: '👥' },
-  { id: 'duration', label: '기간', emoji: '📅' },
-  { id: 'categories', label: '카테고리', emoji: '🗂️' },
-  { id: 'themes', label: '테마', emoji: '✨' },
-  { id: 'extra', label: '추가 정보', emoji: '💬' },
-];
-
-const durationLabels: Record<string, string> = {
-  day: '당일치기',
-  '1n2d': '1박 2일',
-  '2n3d': '2박 3일',
-  '3n4d': '3박 4일',
-  '4n_plus': '4박 이상',
-};
-
-export default function HomePage() {
+export default function PlannerPage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<Step>('region');
-  const [region, setRegion] = useState('');
-  const [member, setMember] = useState<MemberTag | ''>('');
-  const [duration, setDuration] = useState<DurationKey | ''>('');
-  const [categories, setCategories] = useState<Category[]>(['attraction', 'restaurant', 'lodging']);
-  const [themes, setThemes] = useState<Theme[]>([]);
-  const [extraRequest, setExtraRequest] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState(0);
-  const [error, setError] = useState('');
 
-  const LOADING_STAGES = [
-    '1/4  블로그 검색 중...',
-    '2/4  후기 내용 분석 중...',
-    '3/4  조건 맞는 후기 선별 중...',
-    '4/4  맞춤 일정 생성 중...',
-  ];
-  const STAGE_DELAYS_MS = [0, 5000, 13000, 21000];
+  const [region, setRegion] = useState<Region | null>(null);
+  const [period, setPeriod] = useState<TravelPeriod | null>(null);
+  const [attractions, setAttractions] = useState<WishPlace[]>([]);
+  const [restaurants, setRestaurants] = useState<WishPlace[]>([]);
+  const [lodgings, setLodgings] = useState<WishLodging[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!loading) { setLoadingStage(0); return; }
-    const timers = STAGE_DELAYS_MS.map((delay, i) =>
-      setTimeout(() => setLoadingStage(i), delay)
+  const canGenerate = region && period;
+
+  function handleAddPlace(kakaoPlace: KakaoPlace, category: PlaceCategory) {
+    const base = kakaoPlaceToWishPlace(kakaoPlace, category);
+    const place: WishPlace = { ...base, id: generateId() };
+    if (category === 'attraction') {
+      if (attractions.some((p) => p.kakaoId === kakaoPlace.id)) return;
+      setAttractions((prev) => [...prev, place]);
+    } else {
+      if (restaurants.some((p) => p.kakaoId === kakaoPlace.id)) return;
+      setRestaurants((prev) => [...prev, place]);
+    }
+  }
+
+  function handleDeletePlace(id: string, listType: 'attraction' | 'restaurant') {
+    if (listType === 'attraction') {
+      setAttractions((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setRestaurants((prev) => prev.filter((p) => p.id !== id));
+    }
+  }
+
+  function handleNoteChange(id: string, listType: 'attraction' | 'restaurant', note: string) {
+    if (listType === 'attraction') {
+      setAttractions((prev) => prev.map((p) => (p.id === id ? { ...p, userNote: note } : p)));
+    } else {
+      setRestaurants((prev) => prev.map((p) => (p.id === id ? { ...p, userNote: note } : p)));
+    }
+  }
+
+  function handleAddLodging(kakaoPlace: KakaoPlace, checkIn: string, checkOut: string) {
+    const base = kakaoPlaceToWishPlace(kakaoPlace, 'attraction');
+    const lodging: WishLodging = {
+      id: generateId(),
+      kakaoId: kakaoPlace.id,
+      name: kakaoPlace.place_name,
+      address: kakaoPlace.address_name,
+      roadAddress: kakaoPlace.road_address_name,
+      lat: parseFloat(kakaoPlace.y),
+      lng: parseFloat(kakaoPlace.x),
+      kakaoMapUrl: kakaoPlace.place_url,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+    };
+    setLodgings((prev) => [...prev, lodging]);
+  }
+
+  function handleDeleteLodging(id: string) {
+    setLodgings((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  function handleLodgingDateChange(id: string, checkIn: string, checkOut: string) {
+    setLodgings((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, checkInDate: checkIn, checkOutDate: checkOut } : l))
     );
-    return () => timers.forEach(clearTimeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }
 
-  const currentIdx = steps.findIndex((s) => s.id === currentStep);
+  async function handleGenerate() {
+    if (!region || !period) return;
+    setGenerating(true);
+    setError(null);
 
-  const canNext = () => {
-    if (currentStep === 'region') return !!region;
-    if (currentStep === 'member') return !!member;
-    if (currentStep === 'duration') return !!duration;
-    if (currentStep === 'categories') return categories.length > 0;
-    return true;
-  };
-
-  const handleNext = () => {
-    if (currentIdx < steps.length - 1) {
-      setCurrentStep(steps[currentIdx + 1].id);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentIdx > 0) {
-      setCurrentStep(steps[currentIdx - 1].id);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!region || !member || !duration) {
-      setError('지역, 멤버, 기간은 필수 입력 항목입니다.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-
-    const inputs: GuideInputs = {
+    const planId = generateId();
+    const plan = {
+      id: planId,
+      createdAt: new Date().toISOString(),
       region,
-      member: member as MemberTag,
-      duration: duration as DurationKey,
-      categories,
-      themes,
-      extraRequest: extraRequest || undefined,
+      period,
+      wishlist: { attractions, restaurants, lodgings },
+      schedule: [],
     };
 
     try {
-      const res = await fetch('/api/guide', {
+      const res = await fetch('/api/schedule/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs }),
+        body: JSON.stringify(plan),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? '가이드 생성에 실패했습니다. 다시 시도해주세요.');
-        return;
-      }
-
-      const guide = await res.json();
-      saveGuide(guide);
-      router.push(`/guide/${guide.id}`);
-    } catch {
-      setError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-    } finally {
-      setLoading(false);
+      if (!res.ok) throw new Error('일정 생성에 실패했습니다.');
+      const { schedule } = await res.json();
+      const completedPlan = { ...plan, schedule, generatedAt: new Date().toISOString() };
+      savePlan(completedPlan);
+      router.push(`/schedule/${planId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '오류가 발생했습니다.');
+      setGenerating(false);
     }
-  };
-
-  const isLastStep = currentIdx === steps.length - 1;
-  const regionLabel = region ? allRegions.find((r) => r.id === region)?.label : '';
-  const memberLabel = member ? memberOptions.find((m) => m.id === member)?.label : '';
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-100">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">✈️</span>
-            <span className="font-bold text-gray-800">여행 가이드</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">여행 플래너</h1>
+            <p className="text-xs text-gray-500">가고 싶은 곳 등록 → AI 동선 최적화</p>
           </div>
-          <a href="/history" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-            내 가이드 보기
-          </a>
+          <a href="/history" className="text-sm text-blue-600 hover:underline">내 플랜 목록</a>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">어디로 떠날까요? 🗺️</h1>
-          <p className="text-gray-500">
-            지역, 멤버, 기간을 선택하면<br />AI가 맞춤 여행 가이드를 만들어 드려요.
-          </p>
-        </div>
-
-        {/* Progress */}
-        <div className="flex items-center gap-1 mb-8">
-          {steps.map((step, idx) => (
-            <div key={step.id} className="flex items-center flex-1">
-              <button
-                type="button"
-                onClick={() => { if (idx < currentIdx) setCurrentStep(step.id); }}
-                className={`flex flex-col items-center gap-0.5 w-full text-xs transition-colors ${
-                  idx < currentIdx ? 'text-indigo-600 cursor-pointer' : idx === currentIdx ? 'text-indigo-600' : 'text-gray-300'
-                }`}
-              >
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-base transition-all ${
-                  idx < currentIdx ? 'bg-indigo-100 text-indigo-600' : idx === currentIdx ? 'bg-indigo-600 text-white shadow-lg scale-110' : 'bg-gray-100'
-                }`}>
-                  {idx < currentIdx ? '✓' : step.emoji}
-                </span>
-                <span className="hidden sm:block">{step.label}</span>
-              </button>
-              {idx < steps.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-1 transition-colors ${idx < currentIdx ? 'bg-indigo-300' : 'bg-gray-100'}`} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Step Content */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>{steps[currentIdx].emoji}</span>
-            <span>{steps[currentIdx].label}</span>
-            {currentStep === 'themes' || currentStep === 'extra' ? (
-              <span className="text-sm font-normal text-gray-400">(선택)</span>
-            ) : (
-              <span className="text-sm font-normal text-red-400">*필수</span>
-            )}
-          </h2>
-
-          {currentStep === 'region' && <RegionSelect value={region} onChange={setRegion} />}
-          {currentStep === 'member' && <MemberSelect value={member} onChange={setMember} />}
-          {currentStep === 'duration' && <DurationSelect value={duration} onChange={setDuration} />}
-          {currentStep === 'categories' && <CategoryChecks value={categories} onChange={setCategories} />}
-          {currentStep === 'themes' && <ThemeChips value={themes} onChange={setThemes} />}
-          {currentStep === 'extra' && (
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Section 1: 기본 정보 */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">여행 기본 정보</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">추가 요청사항</label>
-              <p className="text-xs text-gray-400 mb-2">특별한 조건이나 요구사항이 있으면 자유롭게 작성해주세요.</p>
-              <textarea
-                value={extraRequest}
-                onChange={(e) => setExtraRequest(e.target.value)}
-                placeholder="예: 채식주의자예요 / 아이가 5살이에요 / 예산이 많지 않아요 / 도보 위주로 다니고 싶어요"
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm resize-none"
+              <p className="text-sm font-medium text-gray-600 mb-2">여행 지역</p>
+              <RegionPicker
+                value={region ? { province: region.province, city: region.city } : null}
+                onChange={setRegion}
               />
             </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-4 text-center space-y-2">
-            <p className="text-sm text-red-500">{error}</p>
-            {isLastStep && (
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="text-sm text-indigo-600 hover:text-indigo-800 underline disabled:opacity-50"
-              >
-                다시 시도
-              </button>
-            )}
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-2">여행 일정</p>
+              <PeriodPicker value={period} onChange={setPeriod} />
+            </div>
           </div>
-        )}
+        </section>
 
-        {/* Navigation */}
-        <div className="flex gap-3">
-          {currentIdx > 0 && (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors"
-            >
-              ← 이전
-            </button>
-          )}
-          {isLastStep ? (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  {LOADING_STAGES[loadingStage]}
+        {/* Section 2: 장소 검색 + 위시리스트 */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">가고 싶은 여행지 · 음식점</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm text-gray-500 mb-3">카카오 지도 데이터 기반 검색</p>
+              <PlaceSearch
+                regionLat={region?.lat ?? 37.5665}
+                regionLng={region?.lng ?? 126.978}
+                regionName={region?.displayName ?? ''}
+                onAdd={handleAddPlace}
+              />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-3">등록된 장소 목록</p>
+              <WishlistPanel
+                attractions={attractions}
+                restaurants={restaurants}
+                onDelete={handleDeletePlace}
+                onNoteChange={handleNoteChange}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Section 3: 숙소 */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">숙소</h2>
+          <p className="text-sm text-gray-500 mb-3">숙소를 등록하면 동선의 기점으로 활용됩니다.</p>
+          <LodgingForm
+            regionLat={region?.lat ?? 37.5665}
+            regionLng={region?.lng ?? 126.978}
+            regionName={region?.displayName ?? ''}
+            travelStartDate={period?.startDate ?? ''}
+            travelEndDate={period?.endDate ?? ''}
+            lodgings={lodgings}
+            onAdd={handleAddLodging}
+            onDelete={handleDeleteLodging}
+            onDateChange={handleLodgingDateChange}
+          />
+        </section>
+
+        {/* Generate CTA */}
+        <div className="sticky bottom-0 bg-white/90 backdrop-blur border-t border-gray-200 py-4 px-4 -mx-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+            <div className="text-sm text-gray-500">
+              {!region && '지역을 선택해주세요'}
+              {region && !period && '여행 일정을 입력해주세요'}
+              {region && period && (
+                <span>
+                  <span className="font-medium text-gray-800">{region.displayName}</span>
+                  {' · '}
+                  <span className="font-medium text-gray-800">
+                    {period.startDate} ~ {period.endDate}
+                  </span>
+                  {' · '}여행지 {attractions.length}곳 · 음식점 {restaurants.length}곳
                 </span>
-              ) : '🗺️ 가이드 만들기'}
-            </button>
-          ) : (
+              )}
+            </div>
             <button
-              type="button"
-              onClick={handleNext}
-              disabled={!canNext()}
-              className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleGenerate}
+              disabled={!canGenerate || generating}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors min-w-[140px] text-center"
             >
-              다음 →
+              {generating ? (
+                <span className="flex items-center gap-2 justify-center">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  일정 생성 중…
+                </span>
+              ) : (
+                '✨ AI 일정 생성'
+              )}
             </button>
-          )}
-        </div>
-
-        {/* Summary chips */}
-        {(regionLabel || memberLabel || duration) && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-xl text-xs text-gray-500 flex flex-wrap gap-2">
-            {regionLabel && <span className="bg-white px-2 py-1 rounded-lg border border-gray-200">📍 {regionLabel}</span>}
-            {memberLabel && <span className="bg-white px-2 py-1 rounded-lg border border-gray-200">👥 {memberLabel}</span>}
-            {duration && <span className="bg-white px-2 py-1 rounded-lg border border-gray-200">📅 {durationLabels[duration]}</span>}
           </div>
-        )}
-
+          {error && <p className="text-center text-red-500 text-sm mt-2">{error}</p>}
+        </div>
       </main>
     </div>
   );

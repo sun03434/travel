@@ -1,31 +1,39 @@
-import { Guide } from '@/types/place';
+import type { TravelPlan } from '@/types/plan';
 
-const KEY = 'travel_guide_history';
-const MAX_ITEMS = 20;
+const STORAGE_KEY = 'travel_plans_v2';
+const MAX_PLANS = 20;
 
-export function saveGuide(guide: Guide): void {
-  if (typeof window === 'undefined') return;
-  const history = loadHistory();
-  const updated = [guide, ...history.filter((g) => g.id !== guide.id)].slice(0, MAX_ITEMS);
-  localStorage.setItem(KEY, JSON.stringify(updated));
-}
-
-export function loadHistory(): Guide[] {
+function getAll(): TravelPlan[] {
   if (typeof window === 'undefined') return [];
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
   } catch {
     return [];
   }
 }
 
-export function deleteGuide(id: string): void {
-  if (typeof window === 'undefined') return;
-  const history = loadHistory().filter((g) => g.id !== id);
-  localStorage.setItem(KEY, JSON.stringify(history));
+function saveAll(plans: TravelPlan[]): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
 }
 
-export function clearHistory(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(KEY);
+export function savePlan(plan: TravelPlan): void {
+  const plans = getAll().filter((p) => p.id !== plan.id);
+  plans.unshift(plan);
+  saveAll(plans.slice(0, MAX_PLANS));
+}
+
+export function getPlan(id: string): TravelPlan | null {
+  return getAll().find((p) => p.id === id) ?? null;
+}
+
+export function listPlans(): TravelPlan[] {
+  return getAll();
+}
+
+export function deletePlan(id: string): void {
+  saveAll(getAll().filter((p) => p.id !== id));
+}
+
+export function clearAllPlans(): void {
+  localStorage.removeItem(STORAGE_KEY);
 }

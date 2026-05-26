@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "여행 가이드 — 나만의 맞춤 여행 플랜",
-  description: "지역, 멤버, 기간을 선택해 맞춤 여행 가이드를 만들어보세요.",
+  title: "여행 플래너 — 나만의 맞춤 여행 일정",
+  description: "가고 싶은 여행지와 음식점을 등록하면 AI가 최적 동선으로 일정을 만들어드립니다.",
 };
 
 export default function RootLayout({
