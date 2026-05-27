@@ -118,14 +118,17 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     if (!plan) return;
     const updated: TravelPlan = {
       ...plan,
-      schedule: plan.schedule.map((day) => ({
-        ...day,
-        slots: day.slots.map((s) =>
-          s.id === slot.id
-            ? { ...s, type: 'ai_fill' as const, place }
-            : s
-        ),
-      })),
+      schedule: plan.schedule.map((day) => {
+        const newSlots = day.slots.map((s) =>
+          s.id === slot.id ? { ...s, type: 'ai_fill' as const, place } : s
+        );
+        const changed = newSlots.some((s) => s.id === slot.id);
+        return {
+          ...day,
+          slots: newSlots,
+          ...(changed ? { naverAppRouteUrl: buildNaverAppRouteUrl(newSlots) } : {}),
+        };
+      }),
     };
     savePlan(updated);
     setPlan(updated);
@@ -156,16 +159,23 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     const a = flat[curFlatIdx];
     const b = flat[tgtFlatIdx];
 
-    const updatedSchedule = plan.schedule.map((day, di) => ({
-      ...day,
-      slots: day.slots.map((slot, si) => {
+    const affectedDays = new Set([a.dayIdx, b.dayIdx]);
+
+    const updatedSchedule = plan.schedule.map((day, di) => {
+      const newSlots = day.slots.map((slot, si) => {
         if (di === a.dayIdx && si === a.slotIdx)
           return { ...slot, place: b.slot.place, type: b.slot.type, warning: b.slot.warning };
         if (di === b.dayIdx && si === b.slotIdx)
           return { ...slot, place: a.slot.place, type: a.slot.type, warning: a.slot.warning };
         return slot;
-      }),
-    }));
+      });
+      if (!affectedDays.has(di)) return { ...day, slots: newSlots };
+      return {
+        ...day,
+        slots: newSlots,
+        naverAppRouteUrl: buildNaverAppRouteUrl(newSlots),
+      };
+    });
 
     const updated = { ...plan, schedule: updatedSchedule };
     savePlan(updated);

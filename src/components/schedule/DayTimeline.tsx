@@ -66,28 +66,15 @@ export default function DayTimeline({
             )}
           </div>
 
-          <div className="flex-shrink-0 flex flex-col gap-1.5">
-            {naverAppRouteUrl && (
-              <a
-                href={naverAppRouteUrl}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-              >
-                <span>🗺️</span>
-                <span>앱으로 길찾기</span>
-              </a>
-            )}
-            {naverRouteUrl && naverRouteUrl !== 'https://map.naver.com' && (
-              <a
-                href={naverRouteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-green-700 border border-green-300 text-xs font-medium rounded-lg hover:bg-green-50 transition-colors shadow-sm"
-              >
-                <span>🌐</span>
-                <span>웹 지도</span>
-              </a>
-            )}
-          </div>
+          {naverAppRouteUrl && (
+            <a
+              href={naverAppRouteUrl}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <span>🗺️</span>
+              <span>앱으로 길찾기</span>
+            </a>
+          )}
         </div>
       </div>
 
