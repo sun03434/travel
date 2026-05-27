@@ -1,7 +1,7 @@
 'use client';
 
 import type { ScheduledDay, ScheduledSlot, WishPlace } from '@/types/plan';
-import { weatherCodeToEmoji } from '@/lib/utils';
+import { weatherCodeToEmoji, slotGroup } from '@/lib/utils';
 import SlotCard from './SlotCard';
 import RecommendButton from './RecommendButton';
 
@@ -91,16 +91,13 @@ export default function DayTimeline({
           <div className="space-y-1">
             {slots.map((slot, idx) => {
               const isMovable = !!(slot.type !== 'empty' && slot.type !== 'lodging' && slot.place && onReorderSlot);
-              // ▲: prev slot within day (not lodging), OR first slot of non-first day
-              const canMoveUp = isMovable && (
-                (idx > 0 && slots[idx - 1].type !== 'lodging') ||
-                (idx === 0 && dayIndex > 0)
-              );
-              // ▼: next slot within day (not lodging), OR last slot of non-last day
-              const canMoveDown = isMovable && (
-                (idx < slots.length - 1 && slots[idx + 1].type !== 'lodging') ||
-                (idx === slots.length - 1 && dayIndex < totalDays - 1)
-              );
+              const group = slotGroup(slot);
+              // ▲: 같은 그룹의 이전 슬롯이 있거나, 첫 슬롯이면서 이전 날이 있을 때
+              const prevSameGroup = idx > 0 && slotGroup(slots[idx - 1]) === group && slots[idx - 1].type !== 'lodging';
+              const canMoveUp = isMovable && (prevSameGroup || (idx === 0 && dayIndex > 0));
+              // ▼: 같은 그룹의 다음 슬롯이 있거나, 마지막 슬롯이면서 다음 날이 있을 때
+              const nextSameGroup = idx < slots.length - 1 && slotGroup(slots[idx + 1]) === group && slots[idx + 1].type !== 'lodging';
+              const canMoveDown = isMovable && (nextSameGroup || (idx === slots.length - 1 && dayIndex < totalDays - 1));
               return (
                 <div key={slot.id}>
                   <SlotCard

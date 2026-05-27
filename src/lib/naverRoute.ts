@@ -4,11 +4,6 @@ function fmtPath(p: WishPlace | WishLodging): string {
   return `${p.lng},${p.lat},${encodeURIComponent(p.name)}`;
 }
 
-function fmtVia(p: WishPlace | WishLodging): string {
-  // via 쿼리스트링 내부 쉼표는 %2C로 인코딩해야 네이버가 하나의 경유지로 파싱
-  return `${p.lng}%2C${p.lat}%2C${encodeURIComponent(p.name)}`;
-}
-
 function addrQuery(p: WishPlace | WishLodging): string {
   return encodeURIComponent((p as WishPlace).roadAddress || p.address || p.name);
 }
@@ -31,8 +26,9 @@ export function buildNaverRouteUrl(slots: ScheduledSlot[]): string {
     return `https://map.naver.com/v5/directions/${start}/${end}/car`;
   }
 
-  const vias = places.slice(1, -1).map(fmtVia).join('|');
-  return `https://map.naver.com/v5/directions/${start}/${end}/car?via=${vias}`;
+  // via: 좌표만 사용 (이름 제외로 인코딩 이슈 방지), option=trafast로 자동차 모드 강제
+  const vias = places.slice(1, -1).map((p) => `${p.lng},${p.lat}`).join('|');
+  return `https://map.naver.com/v5/directions/${start}/${end}/car?via=${vias}&option=trafast`;
 }
 
 export function buildNaverSearchUrl(name: string, address?: string): string {

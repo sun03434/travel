@@ -1,8 +1,20 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { ScheduledSlot, WishPlace } from '@/types/plan';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/** 슬롯을 food / travel / lodging 그룹으로 분류 (교환 제한에 사용) */
+export function slotGroup(slot: ScheduledSlot): 'food' | 'travel' | 'lodging' {
+  if (slot.type === 'lodging') return 'lodging';
+  if (slot.place && 'category' in slot.place) {
+    return (slot.place as WishPlace).category === 'restaurant' ? 'food' : 'travel';
+  }
+  // empty 슬롯: 시간으로 추정 (12시=점심, 18시=저녁)
+  const hour = parseInt(slot.time.split(':')[0], 10);
+  return hour === 12 || hour === 18 ? 'food' : 'travel';
 }
 
 export function formatDate(dateStr: string): string {

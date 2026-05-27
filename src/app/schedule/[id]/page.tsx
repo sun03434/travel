@@ -6,7 +6,7 @@ import type { TravelPlan, ScheduledSlot, WishPlace, ScheduledDay } from '@/types
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
-import { generateId, weatherCodeToDescription, weatherCodeToEmoji } from '@/lib/utils';
+import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup } from '@/lib/utils';
 import DayTimeline from '@/components/schedule/DayTimeline';
 
 async function fetchWeather(lat: number, lng: number, dates: string[]) {
@@ -142,12 +142,15 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     const curFlatIdx = flat.findIndex((f) => f.slot.id === slotId);
     if (curFlatIdx === -1) return;
 
-    // Find nearest non-lodging target in direction
+    const group = slotGroup(flat[curFlatIdx].slot);
+
+    // 같은 카테고리 그룹(food↔food, travel↔travel)인 가장 가까운 슬롯 탐색
     let tgtFlatIdx = direction === 'up' ? curFlatIdx - 1 : curFlatIdx + 1;
-    while (tgtFlatIdx >= 0 && tgtFlatIdx < flat.length && flat[tgtFlatIdx].slot.type === 'lodging') {
+    while (tgtFlatIdx >= 0 && tgtFlatIdx < flat.length && slotGroup(flat[tgtFlatIdx].slot) !== group) {
       tgtFlatIdx += direction === 'up' ? -1 : 1;
     }
     if (tgtFlatIdx < 0 || tgtFlatIdx >= flat.length) return;
+    if (slotGroup(flat[tgtFlatIdx].slot) !== group) return;
 
     const a = flat[curFlatIdx];
     const b = flat[tgtFlatIdx];
