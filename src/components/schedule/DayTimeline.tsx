@@ -92,12 +92,12 @@ export default function DayTimeline({
             {slots.map((slot, idx) => {
               const isMovable = !!(slot.type !== 'empty' && slot.type !== 'lodging' && slot.place && onReorderSlot);
               const group = slotGroup(slot);
-              // ▲: 같은 그룹의 이전 슬롯이 있거나, 첫 슬롯이면서 이전 날이 있을 때
-              const prevSameGroup = idx > 0 && slotGroup(slots[idx - 1]) === group && slots[idx - 1].type !== 'lodging';
-              const canMoveUp = isMovable && (prevSameGroup || (idx === 0 && dayIndex > 0));
-              // ▼: 같은 그룹의 다음 슬롯이 있거나, 마지막 슬롯이면서 다음 날이 있을 때
-              const nextSameGroup = idx < slots.length - 1 && slotGroup(slots[idx + 1]) === group && slots[idx + 1].type !== 'lodging';
-              const canMoveDown = isMovable && (nextSameGroup || (idx === slots.length - 1 && dayIndex < totalDays - 1));
+              // ▲: 이 슬롯 앞쪽에 같은 그룹 슬롯이 하나라도 있으면 활성화 (중간에 다른 그룹 슬롯 있어도 무시)
+              const hasPrevSameGroup = slots.slice(0, idx).some((s) => slotGroup(s) === group);
+              const canMoveUp = isMovable && (hasPrevSameGroup || dayIndex > 0);
+              // ▼: 이 슬롯 뒤쪽에 같은 그룹 슬롯이 하나라도 있으면 활성화
+              const hasNextSameGroup = slots.slice(idx + 1).some((s) => slotGroup(s) === group);
+              const canMoveDown = isMovable && (hasNextSameGroup || dayIndex < totalDays - 1);
               return (
                 <div key={slot.id}>
                   <SlotCard
