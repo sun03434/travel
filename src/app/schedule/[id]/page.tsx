@@ -164,9 +164,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     const updatedSchedule = plan.schedule.map((day, di) => {
       const newSlots = day.slots.map((slot, si) => {
         if (di === a.dayIdx && si === a.slotIdx)
-          return { ...slot, place: b.slot.place, type: b.slot.type, warning: b.slot.warning };
+          return { ...slot, place: b.slot.place, type: b.slot.type, warning: undefined };
         if (di === b.dayIdx && si === b.slotIdx)
-          return { ...slot, place: a.slot.place, type: a.slot.type, warning: a.slot.warning };
+          return { ...slot, place: a.slot.place, type: a.slot.type, warning: undefined };
         return slot;
       });
       if (!affectedDays.has(di)) return { ...day, slots: newSlots };
