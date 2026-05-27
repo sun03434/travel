@@ -130,6 +130,29 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
+  function handleReorderSlot(dayDate: string, slotId: string, direction: 'up' | 'down') {
+    if (!plan) return;
+    const updated: TravelPlan = {
+      ...plan,
+      schedule: plan.schedule.map((day) => {
+        if (day.date !== dayDate) return day;
+        const slots = [...day.slots];
+        const idx = slots.findIndex((s) => s.id === slotId);
+        if (idx === -1) return day;
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= slots.length) return day;
+        // Swap place, type, warning — keep id/time/endTime in position
+        const a = slots[idx];
+        const b = slots[targetIdx];
+        slots[idx] = { ...a, place: b.place, type: b.type, warning: b.warning };
+        slots[targetIdx] = { ...b, place: a.place, type: a.type, warning: a.warning };
+        return { ...day, slots };
+      }),
+    };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
   async function handleShare() {
     if (!plan) return;
     const result = await sharePlan(plan);
@@ -174,10 +197,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           <DayTimeline
             key={day.date}
             day={day}
-            onRequestRecommend={(slot) => {
-              /* RecommendButton inside SlotCard handles this */
-            }}
+            onRequestRecommend={() => {}}
             onRecommendSelect={handleRecommendSelect}
+            onReorderSlot={handleReorderSlot}
             region={plan.region.displayName}
             regionLat={plan.region.lat}
             regionLng={plan.region.lng}

@@ -7,6 +7,8 @@ interface SlotCardProps {
   slot: ScheduledSlot;
   onRequestRecommend: (slot: ScheduledSlot) => void;
   onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 const categoryLabel: Record<PlaceCategory, string> = {
@@ -42,12 +44,25 @@ function TravelConnector({ minutes }: { minutes: number }) {
   );
 }
 
-function PlaceSlotCard({ slot }: { slot: ScheduledSlot }) {
+function PlaceSlotCard({
+  slot,
+  onMoveUp,
+  onMoveDown,
+}: {
+  slot: ScheduledSlot;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+}) {
   const place = slot.place as WishPlace | WishLodging;
   if (!place) return null;
 
   const isPlace = isWishPlace(place);
   const isLodging = isWishLodging(place);
+  const canMove = !isLodging && slot.type !== 'lodging';
+
+  const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
+    (place as WishPlace).roadAddress || place.address || place.name
+  )}`;
 
   return (
     <div className={cn(
@@ -67,12 +82,36 @@ function PlaceSlotCard({ slot }: { slot: ScheduledSlot }) {
         <span className="text-xs font-medium text-gray-500">
           {slot.time} – {slot.endTime}
         </span>
-        {slot.warning && (
-          <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
-            <span>⚠️</span>
-            <span>{slot.warning}</span>
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {slot.warning && (
+            <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              <span>⚠️</span>
+              <span>{slot.warning}</span>
+            </span>
+          )}
+          {canMove && (
+            <div className="flex gap-0.5">
+              <button
+                type="button"
+                onClick={onMoveUp}
+                disabled={!onMoveUp}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                title="위로 이동"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={onMoveDown}
+                disabled={!onMoveDown}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                title="아래로 이동"
+              >
+                ▼
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Place name + category badge */}
@@ -119,20 +158,18 @@ function PlaceSlotCard({ slot }: { slot: ScheduledSlot }) {
             </p>
           )}
 
-          {/* Kakao map link */}
-          {(place as WishPlace | WishLodging).kakaoMapUrl && (
-            <a
-              href={(place as WishPlace | WishLodging).kakaoMapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-500 hover:text-indigo-700"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-              </svg>
-              지도에서 보기
-            </a>
-          )}
+          {/* Naver map link — always address-based search */}
+          <a
+            href={naverMapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-500 hover:text-indigo-700"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
+            지도에서 보기
+          </a>
         </div>
       </div>
     </div>
@@ -187,7 +224,7 @@ function EmptySlotCard({
   );
 }
 
-export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist }: SlotCardProps) {
+export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown }: SlotCardProps) {
   return (
     <div>
       {(slot.travelMinFromPrev ?? 0) > 0 && (
@@ -200,7 +237,7 @@ export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist }: 
           onAddToWishlist={onAddToWishlist}
         />
       ) : (
-        <PlaceSlotCard slot={slot} />
+        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
       )}
     </div>
   );

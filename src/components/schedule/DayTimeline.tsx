@@ -9,6 +9,7 @@ interface DayTimelineProps {
   day: ScheduledDay;
   onRequestRecommend: (slot: ScheduledSlot) => void;
   onRecommendSelect?: (slot: ScheduledSlot, place: WishPlace) => void;
+  onReorderSlot?: (dayDate: string, slotId: string, direction: 'up' | 'down') => void;
   region?: string;
   regionLat?: number;
   regionLng?: number;
@@ -19,6 +20,7 @@ export default function DayTimeline({
   day,
   onRequestRecommend,
   onRecommendSelect,
+  onReorderSlot,
   region = '',
   regionLat = 37.5,
   regionLng = 127.0,
@@ -92,27 +94,34 @@ export default function DayTimeline({
           </div>
         ) : (
           <div className="space-y-1">
-            {slots.map((slot) => (
-              <div key={slot.id}>
-                <SlotCard
-                  slot={slot}
-                  onRequestRecommend={onRequestRecommend}
-                />
-                {slot.type === 'empty' && onRecommendSelect && (
-                  <div className="mt-2 ml-1">
-                    <RecommendButton
-                      slot={slot}
-                      dayDate={day.date}
-                      region={region}
-                      regionLat={regionLat}
-                      regionLng={regionLng}
-                      {...getAdjacentPlaces(slot)}
-                      onSelect={(place) => onRecommendSelect(slot, place)}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+            {slots.map((slot, idx) => {
+              const isMovable = slot.type !== 'empty' && slot.type !== 'lodging' && slot.place;
+              const prevIsMovable = idx > 0 && slots[idx - 1].type !== 'lodging';
+              const nextIsMovable = idx < slots.length - 1 && slots[idx + 1].type !== 'lodging';
+              return (
+                <div key={slot.id}>
+                  <SlotCard
+                    slot={slot}
+                    onRequestRecommend={onRequestRecommend}
+                    onMoveUp={isMovable && prevIsMovable && onReorderSlot ? () => onReorderSlot(day.date, slot.id, 'up') : undefined}
+                    onMoveDown={isMovable && nextIsMovable && onReorderSlot ? () => onReorderSlot(day.date, slot.id, 'down') : undefined}
+                  />
+                  {slot.type === 'empty' && onRecommendSelect && (
+                    <div className="mt-2 ml-1">
+                      <RecommendButton
+                        slot={slot}
+                        dayDate={day.date}
+                        region={region}
+                        regionLat={regionLat}
+                        regionLng={regionLng}
+                        {...getAdjacentPlaces(slot)}
+                        onSelect={(place) => onRecommendSelect(slot, place)}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
