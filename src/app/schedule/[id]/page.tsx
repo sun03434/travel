@@ -130,25 +130,40 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
-  function handleReorderSlot(dayDate: string, slotId: string, direction: 'up' | 'down') {
+  function handleReorderSlot(_dayDate: string, slotId: string, direction: 'up' | 'down') {
     if (!plan) return;
-    const updated: TravelPlan = {
-      ...plan,
-      schedule: plan.schedule.map((day) => {
-        if (day.date !== dayDate) return day;
-        const slots = [...day.slots];
-        const idx = slots.findIndex((s) => s.id === slotId);
-        if (idx === -1) return day;
-        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-        if (targetIdx < 0 || targetIdx >= slots.length) return day;
-        // Swap place, type, warning — keep id/time/endTime in position
-        const a = slots[idx];
-        const b = slots[targetIdx];
-        slots[idx] = { ...a, place: b.place, type: b.type, warning: b.warning };
-        slots[targetIdx] = { ...b, place: a.place, type: a.type, warning: a.warning };
-        return { ...day, slots };
+
+    // Flat list across all days
+    const flat: { dayIdx: number; slotIdx: number; slot: ScheduledSlot }[] = [];
+    plan.schedule.forEach((day, di) =>
+      day.slots.forEach((slot, si) => flat.push({ dayIdx: di, slotIdx: si, slot }))
+    );
+
+    const curFlatIdx = flat.findIndex((f) => f.slot.id === slotId);
+    if (curFlatIdx === -1) return;
+
+    // Find nearest non-lodging target in direction
+    let tgtFlatIdx = direction === 'up' ? curFlatIdx - 1 : curFlatIdx + 1;
+    while (tgtFlatIdx >= 0 && tgtFlatIdx < flat.length && flat[tgtFlatIdx].slot.type === 'lodging') {
+      tgtFlatIdx += direction === 'up' ? -1 : 1;
+    }
+    if (tgtFlatIdx < 0 || tgtFlatIdx >= flat.length) return;
+
+    const a = flat[curFlatIdx];
+    const b = flat[tgtFlatIdx];
+
+    const updatedSchedule = plan.schedule.map((day, di) => ({
+      ...day,
+      slots: day.slots.map((slot, si) => {
+        if (di === a.dayIdx && si === a.slotIdx)
+          return { ...slot, place: b.slot.place, type: b.slot.type, warning: b.slot.warning };
+        if (di === b.dayIdx && si === b.slotIdx)
+          return { ...slot, place: a.slot.place, type: a.slot.type, warning: a.slot.warning };
+        return slot;
       }),
-    };
+    }));
+
+    const updated = { ...plan, schedule: updatedSchedule };
     savePlan(updated);
     setPlan(updated);
   }
@@ -193,10 +208,12 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        {plan.schedule.map((day) => (
+        {plan.schedule.map((day, dayIdx) => (
           <DayTimeline
             key={day.date}
             day={day}
+            dayIndex={dayIdx}
+            totalDays={plan.schedule.length}
             onRequestRecommend={() => {}}
             onRecommendSelect={handleRecommendSelect}
             onReorderSlot={handleReorderSlot}

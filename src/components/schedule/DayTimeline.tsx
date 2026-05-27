@@ -7,6 +7,8 @@ import RecommendButton from './RecommendButton';
 
 interface DayTimelineProps {
   day: ScheduledDay;
+  dayIndex?: number;
+  totalDays?: number;
   onRequestRecommend: (slot: ScheduledSlot) => void;
   onRecommendSelect?: (slot: ScheduledSlot, place: WishPlace) => void;
   onReorderSlot?: (dayDate: string, slotId: string, direction: 'up' | 'down') => void;
@@ -18,6 +20,8 @@ interface DayTimelineProps {
 
 export default function DayTimeline({
   day,
+  dayIndex = 0,
+  totalDays = 1,
   onRequestRecommend,
   onRecommendSelect,
   onReorderSlot,
@@ -29,23 +33,14 @@ export default function DayTimeline({
   const { dayLabel, weather, naverRouteUrl, slots } = day;
 
   function getAdjacentPlaces(slot: ScheduledSlot) {
-    const allPlaced = allSlots.filter((s) => s.place);
-    const currentIdx = allPlaced.findIndex((s) => s.id === slot.id);
-    const prevSlot = currentIdx > 0 ? allPlaced[currentIdx - 1] : null;
-    const nextSlot = currentIdx >= 0 && currentIdx < allPlaced.length - 1 ? allPlaced[currentIdx + 1] : null;
-
-    // Fallback: check within same day
-    const dayPlaced = slots.filter((s) => s.place && s.id !== slot.id);
-    const slotIdx = slots.findIndex((s) => s.id === slot.id);
-    const prevDayPlaced = dayPlaced.filter((s) => slots.indexOf(s) < slotIdx).at(-1);
-    const nextDayPlaced = dayPlaced.find((s) => slots.indexOf(s) > slotIdx);
-
-    const prev = prevSlot ?? prevDayPlaced ?? null;
-    const next = nextSlot ?? nextDayPlaced ?? null;
-
+    // Find slot's position in full cross-day flat list
+    const idx = allSlots.findIndex((s) => s.id === slot.id);
+    const prev = idx > 0 ? (allSlots.slice(0, idx).reverse().find((s) => s.place) ?? null) : null;
+    const next = idx >= 0 ? (allSlots.slice(idx + 1).find((s) => s.place) ?? null) : null;
     return {
       prevPlace: prev?.place ? { name: prev.place.name, lat: prev.place.lat, lng: prev.place.lng } : undefined,
       nextPlace: next?.place ? { name: next.place.name, lat: next.place.lat, lng: next.place.lng } : undefined,
+      isNextLodging: next?.type === 'lodging',
     };
   }
 
@@ -95,16 +90,24 @@ export default function DayTimeline({
         ) : (
           <div className="space-y-1">
             {slots.map((slot, idx) => {
-              const isMovable = slot.type !== 'empty' && slot.type !== 'lodging' && slot.place;
-              const prevIsMovable = idx > 0 && slots[idx - 1].type !== 'lodging';
-              const nextIsMovable = idx < slots.length - 1 && slots[idx + 1].type !== 'lodging';
+              const isMovable = !!(slot.type !== 'empty' && slot.type !== 'lodging' && slot.place && onReorderSlot);
+              // ▲: prev slot within day (not lodging), OR first slot of non-first day
+              const canMoveUp = isMovable && (
+                (idx > 0 && slots[idx - 1].type !== 'lodging') ||
+                (idx === 0 && dayIndex > 0)
+              );
+              // ▼: next slot within day (not lodging), OR last slot of non-last day
+              const canMoveDown = isMovable && (
+                (idx < slots.length - 1 && slots[idx + 1].type !== 'lodging') ||
+                (idx === slots.length - 1 && dayIndex < totalDays - 1)
+              );
               return (
                 <div key={slot.id}>
                   <SlotCard
                     slot={slot}
                     onRequestRecommend={onRequestRecommend}
-                    onMoveUp={isMovable && prevIsMovable && onReorderSlot ? () => onReorderSlot(day.date, slot.id, 'up') : undefined}
-                    onMoveDown={isMovable && nextIsMovable && onReorderSlot ? () => onReorderSlot(day.date, slot.id, 'down') : undefined}
+                    onMoveUp={canMoveUp ? () => onReorderSlot!(day.date, slot.id, 'up') : undefined}
+                    onMoveDown={canMoveDown ? () => onReorderSlot!(day.date, slot.id, 'down') : undefined}
                   />
                   {slot.type === 'empty' && onRecommendSelect && (
                     <div className="mt-2 ml-1">
@@ -114,8 +117,8 @@ export default function DayTimeline({
                         region={region}
                         regionLat={regionLat}
                         regionLng={regionLng}
-                        {...getAdjacentPlaces(slot)}
                         onSelect={(place) => onRecommendSelect(slot, place)}
+                        {...getAdjacentPlaces(slot)}
                       />
                     </div>
                   )}

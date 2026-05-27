@@ -20,16 +20,24 @@ export async function POST(req: NextRequest) {
     category: 'attraction' | 'restaurant' | 'cafe';
     prevPlace?: { name: string; lat: number; lng: number };
     nextPlace?: { name: string; lat: number; lng: number };
+    isNextLodging?: boolean;
     regionLat: number;
     regionLng: number;
   };
 
-  const context = [
-    body.prevPlace && `직전 장소: ${body.prevPlace.name} (${body.prevPlace.lat},${body.prevPlace.lng})`,
-    body.nextPlace && `직후 장소: ${body.nextPlace.name} (${body.nextPlace.lat},${body.nextPlace.lng})`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const contextLines: string[] = [];
+  if (body.prevPlace) {
+    contextLines.push(`직전 장소: ${body.prevPlace.name} (${body.prevPlace.lat},${body.prevPlace.lng})`);
+  }
+  if (body.nextPlace) {
+    const label = body.isNextLodging ? '당일 숙소(복귀지점)' : '직후 장소';
+    contextLines.push(`${label}: ${body.nextPlace.name} (${body.nextPlace.lat},${body.nextPlace.lng})`);
+  }
+  const context = contextLines.join('\n');
+
+  const lodgingNote = body.isNextLodging
+    ? '\n직후가 숙소이므로, 추천 장소에서 숙소까지 이동이 부담 없는 위치(차로 30분 이내)를 우선하세요.'
+    : '';
 
   const categoryLabel =
     body.category === 'attraction' ? '관광지/체험 명소' :
@@ -41,7 +49,7 @@ export async function POST(req: NextRequest) {
 ${context}
 
 위 동선상 자연스러운 ${categoryLabel} 3곳을 추천해주세요.
-각 장소는 전후 장소에서 차로 20분 이내여야 합니다.
+각 장소는 전후 장소에서 차로 20분 이내여야 합니다.${lodgingNote}
 
 응답 형식:
 {

@@ -16,6 +16,7 @@ interface RecommendButtonProps {
   regionLng: number;
   prevPlace?: { name: string; lat: number; lng: number };
   nextPlace?: { name: string; lat: number; lng: number };
+  isNextLodging?: boolean;
   onSelect: (place: WishPlace) => void;
 }
 
@@ -41,6 +42,7 @@ export default function RecommendButton({
   regionLng,
   prevPlace,
   nextPlace,
+  isNextLodging = false,
   onSelect,
 }: RecommendButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,6 +67,7 @@ export default function RecommendButton({
           category: 'attraction',
           prevPlace,
           nextPlace,
+          isNextLodging,
           regionLat,
           regionLng,
         }),
