@@ -30,7 +30,7 @@ export default function DayTimeline({
   regionLng = 127.0,
   allSlots = [],
 }: DayTimelineProps) {
-  const { dayLabel, weather, naverRouteUrl, slots } = day;
+  const { dayLabel, weather, naverRouteUrl, naverAppRouteUrl, slots } = day;
 
   function getAdjacentPlaces(slot: ScheduledSlot) {
     // Find slot's position in full cross-day flat list
@@ -66,17 +66,28 @@ export default function DayTimeline({
             )}
           </div>
 
-          {naverRouteUrl && naverRouteUrl !== 'https://map.naver.com' && (
-            <a
-              href={naverRouteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <span>🗺️</span>
-              <span>네이버 지도로 보기</span>
-            </a>
-          )}
+          <div className="flex-shrink-0 flex flex-col gap-1.5">
+            {naverAppRouteUrl && (
+              <a
+                href={naverAppRouteUrl}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+              >
+                <span>🗺️</span>
+                <span>앱으로 길찾기</span>
+              </a>
+            )}
+            {naverRouteUrl && naverRouteUrl !== 'https://map.naver.com' && (
+              <a
+                href={naverRouteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-green-700 border border-green-300 text-xs font-medium rounded-lg hover:bg-green-50 transition-colors shadow-sm"
+              >
+                <span>🌐</span>
+                <span>웹 지도</span>
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
@@ -90,7 +101,8 @@ export default function DayTimeline({
         ) : (
           <div className="space-y-1">
             {slots.map((slot, idx) => {
-              const isMovable = !!(slot.type !== 'empty' && slot.type !== 'lodging' && slot.place && onReorderSlot);
+              const isLodgingSlot = slot.type === 'lodging' || !!(slot.place && 'checkInDate' in slot.place);
+              const isMovable = !!(slot.type !== 'empty' && !isLodgingSlot && slot.place && onReorderSlot);
               const group = slotGroup(slot);
               // ▲: 이 슬롯 앞쪽에 같은 그룹 슬롯이 하나라도 있으면 활성화 (중간에 다른 그룹 슬롯 있어도 무시)
               const hasPrevSameGroup = slots.slice(0, idx).some((s) => slotGroup(s) === group);

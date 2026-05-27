@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TravelPlan, ScheduledSlot, WishPlace, ScheduledDay } from '@/types/plan';
 import { getPlan, savePlan } from '@/lib/storage';
-import { buildNaverRouteUrl } from '@/lib/naverRoute';
+import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
 import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup } from '@/lib/utils';
 import DayTimeline from '@/components/schedule/DayTimeline';
@@ -79,9 +79,10 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
     // Enrich schedule: naver route URLs + weather + travel times
     async function enrich(p: TravelPlan) {
-      let schedule = p.schedule.map((day) => ({
+      let schedule: import('@/types/plan').ScheduledDay[] = p.schedule.map((day) => ({
         ...day,
-        naverRouteUrl: buildNaverRouteUrl(day.slots),
+        naverRouteUrl: buildNaverWebRouteUrl(day.slots),
+        naverAppRouteUrl: buildNaverAppRouteUrl(day.slots),
       }));
 
       // Weather

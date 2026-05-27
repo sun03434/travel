@@ -8,11 +8,11 @@ export function cn(...inputs: ClassValue[]) {
 
 /** 슬롯을 food / travel / lodging 그룹으로 분류 (교환 제한에 사용) */
 export function slotGroup(slot: ScheduledSlot): 'food' | 'travel' | 'lodging' {
-  if (slot.type === 'lodging') return 'lodging';
+  // type 필드 또는 place의 checkInDate 존재로 숙소 판별 (AI가 type:'wish'로 잘못 반환하는 경우 대비)
+  if (slot.type === 'lodging' || (slot.place && 'checkInDate' in slot.place)) return 'lodging';
   if (slot.place && 'category' in slot.place) {
     return (slot.place as WishPlace).category === 'restaurant' ? 'food' : 'travel';
   }
-  // empty 슬롯: 시간으로 추정 (12시=점심, 18시=저녁)
   const hour = parseInt(slot.time.split(':')[0], 10);
   return hour === 12 || hour === 18 ? 'food' : 'travel';
 }

@@ -62,6 +62,7 @@ export interface ScheduledDay {
   weather?: DayWeather;
   slots: ScheduledSlot[];
   naverRouteUrl: string;
+  naverAppRouteUrl?: string;
 }
 
 export interface DayWeather {
