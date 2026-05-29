@@ -2,12 +2,13 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { TravelPlan, ScheduledSlot, WishPlace, ScheduledDay } from '@/types/plan';
+import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay } from '@/types/plan';
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
 import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup } from '@/lib/utils';
 import DayTimeline from '@/components/schedule/DayTimeline';
+import StashPanel from '@/components/schedule/StashPanel';
 
 async function fetchWeather(lat: number, lng: number, dates: string[]) {
   const startDate = dates[0];
@@ -182,6 +183,52 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
+  function handleClearToStash(dayDate: string, slotId: string) {
+    if (!plan) return;
+    const day = plan.schedule.find((d) => d.date === dayDate);
+    const slot = day?.slots.find((s) => s.id === slotId);
+    if (!slot?.place) return;
+    const place = slot.place;
+    const updated: TravelPlan = {
+      ...plan,
+      stash: [...(plan.stash ?? []), place],
+      schedule: plan.schedule.map((d) => {
+        if (d.date !== dayDate) return d;
+        const newSlots = d.slots.map((s) =>
+          s.id === slotId ? { ...s, type: 'empty' as const, place: undefined, warning: undefined } : s
+        );
+        return { ...d, slots: newSlots, naverAppRouteUrl: buildNaverAppRouteUrl(newSlots) };
+      }),
+    };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
+  function handlePlaceFromStash(place: WishPlace | WishLodging, dayDate: string, slotId: string) {
+    if (!plan) return;
+    const placeType = 'checkInDate' in place ? 'lodging' as const : 'wish' as const;
+    const updated: TravelPlan = {
+      ...plan,
+      stash: (plan.stash ?? []).filter((p) => p.id !== place.id),
+      schedule: plan.schedule.map((d) => {
+        const newSlots = d.slots.map((s) =>
+          s.id === slotId ? { ...s, type: placeType, place, warning: undefined } : s
+        );
+        const changed = newSlots.some((s, i) => s !== d.slots[i]);
+        return { ...d, slots: newSlots, ...(changed ? { naverAppRouteUrl: buildNaverAppRouteUrl(newSlots) } : {}) };
+      }),
+    };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
+  function handleRemoveFromStash(placeId: string) {
+    if (!plan) return;
+    const updated: TravelPlan = { ...plan, stash: (plan.stash ?? []).filter((p) => p.id !== placeId) };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
   async function handleShare() {
     if (!plan) return;
     const result = await sharePlan(plan);
@@ -221,7 +268,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-20">
         {plan.schedule.map((day, dayIdx) => (
           <DayTimeline
             key={day.date}
@@ -231,6 +278,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             onRequestRecommend={() => {}}
             onRecommendSelect={handleRecommendSelect}
             onReorderSlot={handleReorderSlot}
+            onClearToStash={handleClearToStash}
             region={plan.region.displayName}
             regionLat={plan.region.lat}
             regionLng={plan.region.lng}
@@ -245,6 +293,13 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           </div>
         )}
       </main>
+
+      <StashPanel
+        stash={plan.stash ?? []}
+        schedule={plan.schedule}
+        onPlaceFromStash={handlePlaceFromStash}
+        onRemoveFromStash={handleRemoveFromStash}
+      />
     </div>
   );
 }

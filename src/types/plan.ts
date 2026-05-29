@@ -82,6 +82,7 @@ export interface TravelPlan {
     restaurants: WishPlace[];
     lodgings: WishLodging[];
   };
+  stash?: (WishPlace | WishLodging)[];
   schedule: ScheduledDay[];
   generatedAt?: string;
 }

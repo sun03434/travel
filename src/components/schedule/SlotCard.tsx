@@ -9,6 +9,7 @@ interface SlotCardProps {
   onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onClearToStash?: () => void;
 }
 
 const categoryLabel: Record<PlaceCategory, string> = {
@@ -48,10 +49,12 @@ function PlaceSlotCard({
   slot,
   onMoveUp,
   onMoveDown,
+  onClearToStash,
 }: {
   slot: ScheduledSlot;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onClearToStash?: () => void;
 }) {
   const place = slot.place as WishPlace | WishLodging;
   if (!place) return null;
@@ -108,6 +111,14 @@ function PlaceSlotCard({
                 title="아래로 이동"
               >
                 ▼
+              </button>
+              <button
+                type="button"
+                onClick={onClearToStash}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors text-xs"
+                title="보관함으로 이동"
+              >
+                📦
               </button>
             </div>
           )}
@@ -224,7 +235,7 @@ function EmptySlotCard({
   );
 }
 
-export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown }: SlotCardProps) {
+export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash }: SlotCardProps) {
   return (
     <div>
       {(slot.travelMinFromPrev ?? 0) > 0 && (
@@ -237,7 +248,7 @@ export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, on
           onAddToWishlist={onAddToWishlist}
         />
       ) : (
-        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
+        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onClearToStash={onClearToStash} />
       )}
     </div>
   );
