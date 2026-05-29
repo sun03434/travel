@@ -13,6 +13,7 @@ interface DayTimelineProps {
   onRecommendSelect?: (slot: ScheduledSlot, place: WishPlace) => void;
   onReorderSlot?: (dayDate: string, slotId: string, direction: 'up' | 'down') => void;
   onClearToStash?: (dayDate: string, slotId: string) => void;
+  onUpdateClosedDays?: (dayDate: string, slotId: string, closedDays: string[]) => void;
   region?: string;
   regionLat?: number;
   regionLng?: number;
@@ -27,6 +28,7 @@ export default function DayTimeline({
   onRecommendSelect,
   onReorderSlot,
   onClearToStash,
+  onUpdateClosedDays,
   region = '',
   regionLat = 37.5,
   regionLng = 127.0,
@@ -107,6 +109,7 @@ export default function DayTimeline({
                     onMoveUp={canMoveUp ? () => onReorderSlot!(day.date, slot.id, 'up') : undefined}
                     onMoveDown={canMoveDown ? () => onReorderSlot!(day.date, slot.id, 'down') : undefined}
                     onClearToStash={onClearToStash ? () => onClearToStash(day.date, slot.id) : undefined}
+                    onUpdateClosedDays={onUpdateClosedDays ? (days) => onUpdateClosedDays(day.date, slot.id, days) : undefined}
                   />
                   {slot.type === 'empty' && onRecommendSelect && (
                     <div className="mt-2 ml-1">

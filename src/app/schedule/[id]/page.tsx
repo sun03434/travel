@@ -230,6 +230,42 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
+  function handleUpdateClosedDays(dayDate: string, slotId: string, closedDays: string[]) {
+    if (!plan) return;
+    const updated: TravelPlan = {
+      ...plan,
+      wishlist: {
+        ...plan.wishlist,
+        attractions: plan.wishlist.attractions.map((p) => {
+          const slot = plan.schedule.flatMap((d) => d.slots).find((s) => s.id === slotId);
+          return slot?.place && 'kakaoId' in slot.place && slot.place.kakaoId === p.kakaoId
+            ? { ...p, closedDays }
+            : p;
+        }),
+        restaurants: plan.wishlist.restaurants.map((p) => {
+          const slot = plan.schedule.flatMap((d) => d.slots).find((s) => s.id === slotId);
+          return slot?.place && 'kakaoId' in slot.place && slot.place.kakaoId === p.kakaoId
+            ? { ...p, closedDays }
+            : p;
+        }),
+      },
+      schedule: plan.schedule.map((d) => ({
+        ...d,
+        slots: d.slots.map((s) => {
+          if (s.id !== slotId || !s.place || !('category' in s.place)) return s;
+          const updatedPlace = { ...s.place, closedDays };
+          return {
+            ...s,
+            place: updatedPlace,
+            warning: d.date === dayDate ? getClosedDayWarning(updatedPlace, d.date) : s.warning,
+          };
+        }),
+      })),
+    };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
   function handleRemoveFromStash(placeId: string) {
     if (!plan) return;
     const updated: TravelPlan = { ...plan, stash: (plan.stash ?? []).filter((p) => p.id !== placeId) };
@@ -287,6 +323,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             onRecommendSelect={handleRecommendSelect}
             onReorderSlot={handleReorderSlot}
             onClearToStash={handleClearToStash}
+            onUpdateClosedDays={handleUpdateClosedDays}
             region={plan.region.displayName}
             regionLat={plan.region.lat}
             regionLng={plan.region.lng}

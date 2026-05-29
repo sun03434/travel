@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { ScheduledSlot, WishPlace, WishLodging, PlaceCategory } from '@/types/plan';
 import { cn } from '@/lib/utils';
+
+const ALL_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 
 interface SlotCardProps {
   slot: ScheduledSlot;
@@ -10,6 +13,7 @@ interface SlotCardProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onClearToStash?: () => void;
+  onUpdateClosedDays?: (closedDays: string[]) => void;
 }
 
 const categoryLabel: Record<PlaceCategory, string> = {
@@ -50,11 +54,13 @@ function PlaceSlotCard({
   onMoveUp,
   onMoveDown,
   onClearToStash,
+  onUpdateClosedDays,
 }: {
   slot: ScheduledSlot;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onClearToStash?: () => void;
+  onUpdateClosedDays?: (closedDays: string[]) => void;
 }) {
   const place = slot.place as WishPlace | WishLodging;
   if (!place) return null;
@@ -62,6 +68,9 @@ function PlaceSlotCard({
   const isPlace = isWishPlace(place);
   const isLodging = isWishLodging(place);
   const canMove = !isLodging && slot.type !== 'lodging';
+
+  const [editingClosed, setEditingClosed] = useState(false);
+  const [draftDays, setDraftDays] = useState<string[]>([]);
 
   const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
     (place as WishPlace).roadAddress || place.address || place.name
@@ -170,10 +179,72 @@ function PlaceSlotCard({
           )}
 
           {/* 정기휴무 */}
-          {isPlace && place.closedDays && place.closedDays.length > 0 && (
-            <p className="mt-1 text-xs text-gray-400">
-              정기휴무: {place.closedDays.map((d) => `${d}요일`).join(' · ')}
-            </p>
+          {isPlace && !editingClosed && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {place.closedDays && place.closedDays.length > 0 ? (
+                <span className="text-xs text-gray-400">
+                  정기휴무: {place.closedDays.map((d) => `${d}요일`).join(' · ')}
+                </span>
+              ) : (
+                <span className="text-xs text-gray-300">정기휴무 미설정</span>
+              )}
+              {onUpdateClosedDays && (
+                <button
+                  type="button"
+                  onClick={() => { setDraftDays(place.closedDays ?? []); setEditingClosed(true); }}
+                  className="text-xs text-gray-400 hover:text-indigo-500 underline underline-offset-2 transition-colors"
+                >
+                  편집
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 정기휴무 인라인 편집기 */}
+          {isPlace && editingClosed && (
+            <div className="mt-2 p-2.5 bg-white/70 rounded-xl border border-gray-200">
+              <p className="text-xs text-gray-500 mb-2">정기휴무 요일 선택</p>
+              <div className="flex gap-1 flex-wrap mb-2.5">
+                {ALL_WEEKDAYS.map((day) => {
+                  const selected = draftDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() =>
+                        setDraftDays((prev) =>
+                          selected ? prev.filter((d) => d !== day) : [...prev, day]
+                        )
+                      }
+                      className={cn(
+                        'w-8 h-8 rounded-full text-xs font-medium transition-colors',
+                        selected
+                          ? 'bg-red-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      )}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { onUpdateClosedDays!(draftDays); setEditingClosed(false); }}
+                  className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingClosed(false)}
+                  className="px-3 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Naver map link — always address-based search */}
@@ -242,7 +313,7 @@ function EmptySlotCard({
   );
 }
 
-export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash }: SlotCardProps) {
+export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash, onUpdateClosedDays }: SlotCardProps) {
   return (
     <div>
       {(slot.travelMinFromPrev ?? 0) > 0 && (
@@ -255,7 +326,7 @@ export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, on
           onAddToWishlist={onAddToWishlist}
         />
       ) : (
-        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onClearToStash={onClearToStash} />
+        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onClearToStash={onClearToStash} onUpdateClosedDays={onUpdateClosedDays} />
       )}
     </div>
   );
