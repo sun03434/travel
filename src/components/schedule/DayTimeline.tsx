@@ -1,6 +1,6 @@
 'use client';
 
-import type { ScheduledDay, ScheduledSlot, WishPlace } from '@/types/plan';
+import type { ScheduledDay, ScheduledSlot, WishPlace, KakaoPlace, PlaceCategory } from '@/types/plan';
 import { weatherCodeToEmoji, slotGroup } from '@/lib/utils';
 import SlotCard from './SlotCard';
 import RecommendButton from './RecommendButton';
@@ -14,6 +14,7 @@ interface DayTimelineProps {
   onReorderSlot?: (dayDate: string, slotId: string, direction: 'up' | 'down') => void;
   onClearToStash?: (dayDate: string, slotId: string) => void;
   onUpdateClosedDays?: (dayDate: string, slotId: string, closedDays: string[]) => void;
+  onSearchSelect?: (dayDate: string, slotId: string, place: KakaoPlace, category: PlaceCategory) => void;
   region?: string;
   regionLat?: number;
   regionLng?: number;
@@ -29,6 +30,7 @@ export default function DayTimeline({
   onReorderSlot,
   onClearToStash,
   onUpdateClosedDays,
+  onSearchSelect,
   region = '',
   regionLat = 37.5,
   regionLng = 127.0,
@@ -110,6 +112,8 @@ export default function DayTimeline({
                     onMoveDown={canMoveDown ? () => onReorderSlot!(day.date, slot.id, 'down') : undefined}
                     onClearToStash={onClearToStash ? () => onClearToStash(day.date, slot.id) : undefined}
                     onUpdateClosedDays={onUpdateClosedDays ? (days) => onUpdateClosedDays(day.date, slot.id, days) : undefined}
+                    onSearchSelect={onSearchSelect ? (place, cat) => onSearchSelect(day.date, slot.id, place, cat) : undefined}
+                    regionName={region}
                   />
                   {slot.type === 'empty' && onRecommendSelect && (
                     <div className="mt-2 ml-1">

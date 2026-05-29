@@ -2,11 +2,12 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay } from '@/types/plan';
+import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay, KakaoPlace, PlaceCategory } from '@/types/plan';
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
 import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup, getClosedDayWarning } from '@/lib/utils';
+import { kakaoPlaceToWishPlace } from '@/lib/kakao';
 import DayTimeline from '@/components/schedule/DayTimeline';
 import StashPanel from '@/components/schedule/StashPanel';
 
@@ -230,6 +231,33 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
+  function handleSearchSelect(dayDate: string, slotId: string, kakaoPlace: KakaoPlace, category: PlaceCategory) {
+    if (!plan) return;
+    const base = kakaoPlaceToWishPlace(kakaoPlace, category);
+    const place: WishPlace = { ...base, id: generateId() };
+    const listKey = category === 'restaurant' ? 'restaurants' : 'attractions';
+    const alreadyInList = plan.wishlist[listKey].some((p) => p.kakaoId === kakaoPlace.id);
+
+    const updated: TravelPlan = {
+      ...plan,
+      wishlist: alreadyInList ? plan.wishlist : {
+        ...plan.wishlist,
+        [listKey]: [...plan.wishlist[listKey], place],
+      },
+      schedule: plan.schedule.map((d) => {
+        const newSlots = d.slots.map((s) =>
+          s.id === slotId
+            ? { ...s, type: 'wish' as const, place, warning: getClosedDayWarning(place, d.date) }
+            : s
+        );
+        const changed = newSlots.some((s, i) => s !== d.slots[i]);
+        return { ...d, slots: newSlots, ...(changed ? { naverAppRouteUrl: buildNaverAppRouteUrl(newSlots) } : {}) };
+      }),
+    };
+    savePlan(updated);
+    setPlan(updated);
+  }
+
   function handleUpdateClosedDays(dayDate: string, slotId: string, closedDays: string[]) {
     if (!plan) return;
     const updated: TravelPlan = {
@@ -324,6 +352,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             onReorderSlot={handleReorderSlot}
             onClearToStash={handleClearToStash}
             onUpdateClosedDays={handleUpdateClosedDays}
+            onSearchSelect={handleSearchSelect}
             region={plan.region.displayName}
             regionLat={plan.region.lat}
             regionLng={plan.region.lng}

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { ScheduledSlot, WishPlace, WishLodging, PlaceCategory } from '@/types/plan';
+import { ScheduledSlot, WishPlace, WishLodging, PlaceCategory, KakaoPlace } from '@/types/plan';
 import { cn } from '@/lib/utils';
+import SlotPlaceSearch from './SlotPlaceSearch';
 
 const ALL_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 
@@ -14,6 +15,8 @@ interface SlotCardProps {
   onMoveDown?: () => void;
   onClearToStash?: () => void;
   onUpdateClosedDays?: (closedDays: string[]) => void;
+  onSearchSelect?: (place: KakaoPlace, category: PlaceCategory) => void;
+  regionName?: string;
 }
 
 const categoryLabel: Record<PlaceCategory, string> = {
@@ -269,11 +272,17 @@ function EmptySlotCard({
   slot,
   onRequestRecommend,
   onAddToWishlist,
+  onSearchSelect,
+  regionName = '',
 }: {
   slot: ScheduledSlot;
   onRequestRecommend: (slot: ScheduledSlot) => void;
   onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
+  onSearchSelect?: (place: KakaoPlace, category: PlaceCategory) => void;
+  regionName?: string;
 }) {
+  const [showSearch, setShowSearch] = useState(false);
+
   return (
     <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
       <div className="flex items-center justify-between mb-2">
@@ -281,39 +290,41 @@ function EmptySlotCard({
           {slot.time} – {slot.endTime}
         </span>
       </div>
-      <p className="text-sm text-gray-400 mb-3">추가 여행지/음식점 등록 필요</p>
-      <div className="flex flex-wrap gap-2">
-        {onAddToWishlist && (
-          <>
+
+      {showSearch && onSearchSelect ? (
+        <SlotPlaceSearch
+          regionName={regionName}
+          onSelect={(place, cat) => { onSearchSelect(place, cat); setShowSearch(false); }}
+          onCancel={() => setShowSearch(false)}
+        />
+      ) : (
+        <>
+          <p className="text-sm text-gray-400 mb-3">추가 여행지/음식점 등록 필요</p>
+          <div className="flex flex-wrap gap-2">
+            {onSearchSelect && (
+              <button
+                type="button"
+                onClick={() => setShowSearch(true)}
+                className="px-3 py-1.5 text-xs font-medium bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                🔍 직접 검색
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onAddToWishlist(slot.time, 'attraction')}
-              className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+              onClick={() => onRequestRecommend(slot)}
+              className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              + 여행지 추가
+              ✨ AI 추천 받기
             </button>
-            <button
-              type="button"
-              onClick={() => onAddToWishlist(slot.time, 'restaurant')}
-              className="px-3 py-1.5 text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
-            >
-              + 음식점 추가
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          onClick={() => onRequestRecommend(slot)}
-          className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          ✨ AI 추천 받기
-        </button>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash, onUpdateClosedDays }: SlotCardProps) {
+export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash, onUpdateClosedDays, onSearchSelect, regionName }: SlotCardProps) {
   return (
     <div>
       {(slot.travelMinFromPrev ?? 0) > 0 && (
@@ -324,6 +335,8 @@ export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, on
           slot={slot}
           onRequestRecommend={onRequestRecommend}
           onAddToWishlist={onAddToWishlist}
+          onSearchSelect={onSearchSelect}
+          regionName={regionName}
         />
       ) : (
         <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onClearToStash={onClearToStash} onUpdateClosedDays={onUpdateClosedDays} />
