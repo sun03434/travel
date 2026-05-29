@@ -169,6 +169,13 @@ function PlaceSlotCard({
             </p>
           )}
 
+          {/* 정기휴무 */}
+          {isPlace && place.closedDays && place.closedDays.length > 0 && (
+            <p className="mt-1 text-xs text-gray-400">
+              정기휴무: {place.closedDays.map((d) => `${d}요일`).join(' · ')}
+            </p>
+          )}
+
           {/* Naver map link — always address-based search */}
           <a
             href={naverMapUrl}

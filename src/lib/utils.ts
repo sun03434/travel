@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { ScheduledSlot, WishPlace } from '@/types/plan';
+import type { ScheduledSlot, WishPlace, WishLodging } from '@/types/plan';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -46,6 +46,19 @@ export function getDayLabel(dateStr: string, index: number): string {
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   const weekday = weekdays[date.getDay()];
   return `${index + 1}일차 (${month}/${day} ${weekday})`;
+}
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+export function dateToWeekday(dateStr: string): string {
+  return WEEKDAYS[new Date(dateStr + 'T12:00:00').getDay()];
+}
+
+/** 장소의 정기휴무가 해당 날짜와 겹치면 warning 문자열, 아니면 undefined */
+export function getClosedDayWarning(place: WishPlace | WishLodging, dateStr: string): string | undefined {
+  if (!('closedDays' in place) || !place.closedDays?.length) return undefined;
+  const weekday = dateToWeekday(dateStr);
+  return place.closedDays.includes(weekday) ? `정기휴무 (${weekday}요일)` : undefined;
 }
 
 export function generateId(): string {

@@ -6,7 +6,7 @@ import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay } 
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
-import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup } from '@/lib/utils';
+import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup, getClosedDayWarning } from '@/lib/utils';
 import DayTimeline from '@/components/schedule/DayTimeline';
 import StashPanel from '@/components/schedule/StashPanel';
 
@@ -121,7 +121,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       ...plan,
       schedule: plan.schedule.map((day) => {
         const newSlots = day.slots.map((s) =>
-          s.id === slot.id ? { ...s, type: 'ai_fill' as const, place } : s
+          s.id === slot.id
+            ? { ...s, type: 'ai_fill' as const, place, warning: getClosedDayWarning(place, day.date) }
+            : s
         );
         const changed = newSlots.some((s) => s.id === slot.id);
         return {
@@ -160,14 +162,19 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     const a = flat[curFlatIdx];
     const b = flat[tgtFlatIdx];
 
+    const aDate = plan.schedule[a.dayIdx].date;
+    const bDate = plan.schedule[b.dayIdx].date;
+    const warningForA = b.slot.place ? getClosedDayWarning(b.slot.place, aDate) : undefined;
+    const warningForB = a.slot.place ? getClosedDayWarning(a.slot.place, bDate) : undefined;
+
     const affectedDays = new Set([a.dayIdx, b.dayIdx]);
 
     const updatedSchedule = plan.schedule.map((day, di) => {
       const newSlots = day.slots.map((slot, si) => {
         if (di === a.dayIdx && si === a.slotIdx)
-          return { ...slot, place: b.slot.place, type: b.slot.type, warning: undefined };
+          return { ...slot, place: b.slot.place, type: b.slot.type, warning: warningForA };
         if (di === b.dayIdx && si === b.slotIdx)
-          return { ...slot, place: a.slot.place, type: a.slot.type, warning: undefined };
+          return { ...slot, place: a.slot.place, type: a.slot.type, warning: warningForB };
         return slot;
       });
       if (!affectedDays.has(di)) return { ...day, slots: newSlots };
@@ -211,8 +218,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       ...plan,
       stash: (plan.stash ?? []).filter((p) => p.id !== place.id),
       schedule: plan.schedule.map((d) => {
+        const warning = d.date === dayDate ? getClosedDayWarning(place, d.date) : undefined;
         const newSlots = d.slots.map((s) =>
-          s.id === slotId ? { ...s, type: placeType, place, warning: undefined } : s
+          s.id === slotId ? { ...s, type: placeType, place, warning } : s
         );
         const changed = newSlots.some((s, i) => s !== d.slots[i]);
         return { ...d, slots: newSlots, ...(changed ? { naverAppRouteUrl: buildNaverAppRouteUrl(newSlots) } : {}) };
