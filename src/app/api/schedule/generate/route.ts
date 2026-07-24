@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import type { TravelPlan, ScheduledDay, ScheduledSlot, WishPlace, WishLodging } from '@/types/plan';
-import { getDatesInRange, getDayLabel, generateId } from '@/lib/utils';
+import { getDatesInRange, getDayLabel, generateId, sortSlotsByTime } from '@/lib/utils';
 
 export const maxDuration = 60;
 
@@ -9,26 +9,22 @@ const client = new Anthropic();
 
 const SYSTEM = `당신은 한국 여행 일정 최적화 전문가입니다.
 
-━━━ 하루 일정 구조 (반드시 이 순서·슬롯 수를 지킬 것) ━━━
-슬롯1  오전여행   09:00~11:30  attraction/cafe/shopping 중 1곳
-슬롯2  점심식사   12:00~13:00  restaurant 1곳 (점심 영업 필수)
-슬롯3  오후여행   13:30~16:00  attraction/cafe/shopping 중 1곳
-슬롯4  저녁식사   18:00~19:30  restaurant 1곳 (저녁 영업 필수)
-슬롯5  숙소       20:00~       해당 날 체크인 숙소 (있을 때만)
-
-첫날: startTime부터 시작, 마지막날: endTime에 맞춰 종료
+━━━ 하루 일정 구조 (자유롭게 구성) ━━━
+- 슬롯 개수는 고정이 아니다. 하루에 필요한 만큼 슬롯을 자유롭게 만들어라.
+- 각 슬롯의 시작(time)·종료(endTime) 시간을 직접 정한다. 반드시 하루 안에서 시간 오름차순으로 정렬해서 출력.
+- 식사 시간대를 자연스럽게 반영: 필요하면 아침(08:00~09:00), 점심(12:00 전후), 저녁(18:00 전후) 식사 슬롯을 넣는다.
+- 하루 흐름 예: 아침식사 → 오전 여행 → 점심 → 오후 여행 → 카페 → 저녁 → 숙소.
+- 첫날은 startTime부터 시작, 마지막날은 endTime에 맞춰 종료.
+- 숙소 슬롯(type:"lodging")은 해당 날 체크인 숙소가 있을 때만, 하루의 마지막에 배치.
 
 ━━━ 절대 금지 ━━━
-- 하루에 restaurant 3곳 이상 배치 절대 금지
-- 점심 슬롯(12:00)과 저녁 슬롯(18:00)에 각각 restaurant 1곳만
-- 점심에 영업하지 않는 식당을 점심 슬롯에 배치 금지
 - 위시리스트에 없는 장소를 새로 창작해서 추가 금지
+- 식당은 식사 시간대에만 배치. 아침·점심·저녁 각 시간대에 식당은 최대 1곳.
+- 점심/저녁에 영업하지 않는 식당을 해당 식사 슬롯에 배치 금지
 
 ━━━ 빈 슬롯 처리 ━━━
-- 위시리스트 장소가 부족한 시간대는 그 시간대 위치에 type:"empty" 슬롯 배치
-- 빈 슬롯을 절대 맨 뒤에 몰아서 배치하지 말 것
-- 올바른 예: [오전empty][점심식당][오후여행지][저녁empty]
-- 잘못된 예: [오전여행지][점심식당][저녁식당][오후empty][오전empty]
+- 등록된 장소가 부족하면, 비워둘 시간대에 type:"empty" 슬롯을 그 시간 위치에 배치 (placeId는 null)
+- 빈 슬롯도 시간 순서에 맞는 자리에 넣고, 절대 맨 뒤에 몰아서 배치하지 말 것
 
 ━━━ 장소 배치 전략 ━━━
 - 좌표 기준 가까운 장소끼리 같은 날, 연속된 슬롯에 배치
@@ -40,6 +36,7 @@ const SYSTEM = `당신은 한국 여행 일정 최적화 전문가입니다.
 - 순수 JSON만 출력 (마크다운 코드블록, 설명 텍스트 일절 금지)
 - placeId는 반드시 제공된 id 값을 그대로 사용 (변형 금지)
 - 빈 슬롯의 placeId는 null
+- 각 날의 slots는 time 오름차순으로 정렬
 
 {
   "days": [
@@ -48,18 +45,18 @@ const SYSTEM = `당신은 한국 여행 일정 최적화 전문가입니다.
       "slots": [
         {
           "id": "고유ID",
-          "time": "HH:mm",
-          "endTime": "HH:mm",
-          "type": "wish",
-          "placeId": "등록된장소의id",
+          "time": "08:00",
+          "endTime": "09:00",
+          "type": "empty",
+          "placeId": null,
           "warning": null
         },
         {
           "id": "고유ID",
-          "time": "12:00",
-          "endTime": "13:00",
-          "type": "empty",
-          "placeId": null,
+          "time": "09:30",
+          "endTime": "11:30",
+          "type": "wish",
+          "placeId": "등록된장소의id",
           "warning": null
         }
       ]
@@ -161,7 +158,7 @@ JSON만 출력하세요.`;
     return {
       date: day.date,
       dayLabel: getDayLabel(day.date, idx),
-      slots,
+      slots: sortSlotsByTime(slots),
       naverRouteUrl: '',
     };
   });

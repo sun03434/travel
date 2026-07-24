@@ -1,17 +1,18 @@
 'use client';
 
 import type { ScheduledDay, ScheduledSlot, WishPlace, KakaoPlace, PlaceCategory } from '@/types/plan';
-import { weatherCodeToEmoji, slotGroup } from '@/lib/utils';
-import SlotCard from './SlotCard';
+import { weatherCodeToEmoji } from '@/lib/utils';
+import SlotCard, { type DayDateOption } from './SlotCard';
 import RecommendButton from './RecommendButton';
 
 interface DayTimelineProps {
   day: ScheduledDay;
-  dayIndex?: number;
-  totalDays?: number;
+  dayDates?: DayDateOption[];
   onRequestRecommend: (slot: ScheduledSlot) => void;
   onRecommendSelect?: (slot: ScheduledSlot, place: WishPlace) => void;
-  onReorderSlot?: (dayDate: string, slotId: string, direction: 'up' | 'down') => void;
+  onUpdateSlotTime?: (dayDate: string, slotId: string, date: string, time: string, endTime: string) => void;
+  onAddSlot?: (dayDate: string) => void;
+  onDeleteSlot?: (dayDate: string, slotId: string) => void;
   onClearToStash?: (dayDate: string, slotId: string) => void;
   onUpdateClosedDays?: (dayDate: string, slotId: string, closedDays: string[]) => void;
   onSearchSelect?: (dayDate: string, slotId: string, place: KakaoPlace, category: PlaceCategory) => void;
@@ -23,11 +24,12 @@ interface DayTimelineProps {
 
 export default function DayTimeline({
   day,
-  dayIndex = 0,
-  totalDays = 1,
+  dayDates,
   onRequestRecommend,
   onRecommendSelect,
-  onReorderSlot,
+  onUpdateSlotTime,
+  onAddSlot,
+  onDeleteSlot,
   onClearToStash,
   onUpdateClosedDays,
   onSearchSelect,
@@ -36,7 +38,7 @@ export default function DayTimeline({
   regionLng = 127.0,
   allSlots = [],
 }: DayTimelineProps) {
-  const { dayLabel, weather, naverRouteUrl, naverAppRouteUrl, slots } = day;
+  const { dayLabel, weather, naverAppRouteUrl, slots } = day;
 
   function getAdjacentPlaces(slot: ScheduledSlot) {
     // Find slot's position in full cross-day flat list
@@ -93,45 +95,47 @@ export default function DayTimeline({
           </div>
         ) : (
           <div className="space-y-1">
-            {slots.map((slot, idx) => {
-              const isLodgingSlot = slot.type === 'lodging' || !!(slot.place && 'checkInDate' in slot.place);
-              const isMovable = !!(slot.type !== 'empty' && !isLodgingSlot && slot.place && onReorderSlot);
-              const group = slotGroup(slot);
-              // ▲: 이 슬롯 앞쪽에 같은 그룹 슬롯이 하나라도 있으면 활성화 (중간에 다른 그룹 슬롯 있어도 무시)
-              const hasPrevSameGroup = slots.slice(0, idx).some((s) => slotGroup(s) === group);
-              const canMoveUp = isMovable && (hasPrevSameGroup || dayIndex > 0);
-              // ▼: 이 슬롯 뒤쪽에 같은 그룹 슬롯이 하나라도 있으면 활성화
-              const hasNextSameGroup = slots.slice(idx + 1).some((s) => slotGroup(s) === group);
-              const canMoveDown = isMovable && (hasNextSameGroup || dayIndex < totalDays - 1);
-              return (
-                <div key={slot.id}>
-                  <SlotCard
-                    slot={slot}
-                    onRequestRecommend={onRequestRecommend}
-                    onMoveUp={canMoveUp ? () => onReorderSlot!(day.date, slot.id, 'up') : undefined}
-                    onMoveDown={canMoveDown ? () => onReorderSlot!(day.date, slot.id, 'down') : undefined}
-                    onClearToStash={onClearToStash ? () => onClearToStash(day.date, slot.id) : undefined}
-                    onUpdateClosedDays={onUpdateClosedDays ? (days) => onUpdateClosedDays(day.date, slot.id, days) : undefined}
-                    onSearchSelect={onSearchSelect ? (place, cat) => onSearchSelect(day.date, slot.id, place, cat) : undefined}
-                    regionName={region}
-                  />
-                  {slot.type === 'empty' && onRecommendSelect && (
-                    <div className="mt-2 ml-1">
-                      <RecommendButton
-                        slot={slot}
-                        dayDate={day.date}
-                        region={region}
-                        regionLat={regionLat}
-                        regionLng={regionLng}
-                        onSelect={(place) => onRecommendSelect(slot, place)}
-                        {...getAdjacentPlaces(slot)}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {slots.map((slot) => (
+              <div key={slot.id}>
+                <SlotCard
+                  slot={slot}
+                  currentDate={day.date}
+                  dayDates={dayDates}
+                  onRequestRecommend={onRequestRecommend}
+                  onUpdateTime={onUpdateSlotTime ? (date, time, endTime) => onUpdateSlotTime(day.date, slot.id, date, time, endTime) : undefined}
+                  onDelete={onDeleteSlot ? () => onDeleteSlot(day.date, slot.id) : undefined}
+                  onClearToStash={onClearToStash ? () => onClearToStash(day.date, slot.id) : undefined}
+                  onUpdateClosedDays={onUpdateClosedDays ? (days) => onUpdateClosedDays(day.date, slot.id, days) : undefined}
+                  onSearchSelect={onSearchSelect ? (place, cat) => onSearchSelect(day.date, slot.id, place, cat) : undefined}
+                  regionName={region}
+                />
+                {slot.type === 'empty' && onRecommendSelect && (
+                  <div className="mt-2 ml-1">
+                    <RecommendButton
+                      slot={slot}
+                      dayDate={day.date}
+                      region={region}
+                      regionLat={regionLat}
+                      regionLng={regionLng}
+                      onSelect={(place) => onRecommendSelect(slot, place)}
+                      {...getAdjacentPlaces(slot)}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* 슬롯 추가 */}
+        {onAddSlot && (
+          <button
+            type="button"
+            onClick={() => onAddSlot(day.date)}
+            className="mt-3 w-full py-2.5 text-sm font-medium text-indigo-600 border-2 border-dashed border-indigo-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+          >
+            ＋ 슬롯 추가
+          </button>
         )}
       </div>
     </div>

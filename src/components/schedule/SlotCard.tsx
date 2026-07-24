@@ -7,12 +7,18 @@ import SlotPlaceSearch from './SlotPlaceSearch';
 
 const ALL_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 
+export interface DayDateOption {
+  date: string;
+  label: string;
+}
+
 interface SlotCardProps {
   slot: ScheduledSlot;
+  currentDate: string;
+  dayDates?: DayDateOption[];
   onRequestRecommend: (slot: ScheduledSlot) => void;
-  onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  onUpdateTime?: (date: string, time: string, endTime: string) => void;
+  onDelete?: () => void;
   onClearToStash?: () => void;
   onUpdateClosedDays?: (closedDays: string[]) => void;
   onSearchSelect?: (place: KakaoPlace, category: PlaceCategory) => void;
@@ -52,28 +58,177 @@ function TravelConnector({ minutes }: { minutes: number }) {
   );
 }
 
+/** 시간(및 날짜) 표시 + 인라인 편집 + 슬롯 액션(보관함/삭제) 공통 행 */
+function SlotTimeRow({
+  slot,
+  currentDate,
+  dayDates = [],
+  muted = false,
+  canStash = false,
+  onUpdateTime,
+  onClearToStash,
+  onDelete,
+}: {
+  slot: ScheduledSlot;
+  currentDate: string;
+  dayDates?: DayDateOption[];
+  muted?: boolean;
+  canStash?: boolean;
+  onUpdateTime?: (date: string, time: string, endTime: string) => void;
+  onClearToStash?: () => void;
+  onDelete?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draftDate, setDraftDate] = useState(currentDate);
+  const [draftStart, setDraftStart] = useState(slot.time);
+  const [draftEnd, setDraftEnd] = useState(slot.endTime);
+  const showDateSelect = dayDates.length > 1;
+
+  function openEditor() {
+    setDraftDate(currentDate);
+    setDraftStart(slot.time);
+    setDraftEnd(slot.endTime);
+    setEditing(true);
+  }
+
+  if (editing && onUpdateTime) {
+    return (
+      <div className="mb-2 p-2.5 bg-white/80 rounded-xl border border-gray-200">
+        {showDateSelect && (
+          <div className="mb-2">
+            <label className="block text-xs text-gray-500 mb-1">날짜</label>
+            <select
+              value={draftDate}
+              onChange={(e) => setDraftDate(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white"
+            >
+              {dayDates.map((d) => (
+                <option key={d.date} value={d.date}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <label className="block text-xs text-gray-500 mb-1">시간</label>
+        <div className="flex items-center gap-2 mb-2.5">
+          <input
+            type="time"
+            value={draftStart}
+            onChange={(e) => setDraftStart(e.target.value)}
+            className="flex-1 text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white"
+          />
+          <span className="text-gray-400 text-sm">~</span>
+          <input
+            type="time"
+            value={draftEnd}
+            onChange={(e) => setDraftEnd(e.target.value)}
+            className="flex-1 text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white"
+          />
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (draftStart) {
+                onUpdateTime(draftDate, draftStart, draftEnd || draftStart);
+                setEditing(false);
+              }
+            }}
+            className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            저장
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-3 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            취소
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between mb-2">
+      {onUpdateTime ? (
+        <button
+          type="button"
+          onClick={openEditor}
+          className={cn(
+            'inline-flex items-center gap-1 text-xs font-medium rounded px-1 -ml-1 hover:bg-black/5 transition-colors',
+            muted ? 'text-gray-400' : 'text-gray-500',
+          )}
+          title="날짜·시간 편집"
+        >
+          <span>{slot.time} – {slot.endTime}</span>
+          <span className="text-gray-300">✎</span>
+        </button>
+      ) : (
+        <span className={cn('text-xs font-medium', muted ? 'text-gray-400' : 'text-gray-500')}>
+          {slot.time} – {slot.endTime}
+        </span>
+      )}
+
+      <div className="flex items-center gap-1.5">
+        {slot.warning && (
+          <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+            <span>⚠️</span>
+            <span>{slot.warning}</span>
+          </span>
+        )}
+        {canStash && onClearToStash && (
+          <button
+            type="button"
+            onClick={onClearToStash}
+            className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors text-xs"
+            title="보관함으로 이동"
+          >
+            📦
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors text-xs"
+            title="슬롯 삭제"
+          >
+            🗑️
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlaceSlotCard({
   slot,
-  onMoveUp,
-  onMoveDown,
+  currentDate,
+  dayDates,
+  onUpdateTime,
+  onDelete,
   onClearToStash,
   onUpdateClosedDays,
 }: {
   slot: ScheduledSlot;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  currentDate: string;
+  dayDates?: DayDateOption[];
+  onUpdateTime?: (date: string, time: string, endTime: string) => void;
+  onDelete?: () => void;
   onClearToStash?: () => void;
   onUpdateClosedDays?: (closedDays: string[]) => void;
 }) {
   const place = slot.place as WishPlace | WishLodging;
-  if (!place) return null;
 
-  const isPlace = isWishPlace(place);
-  const isLodging = isWishLodging(place);
-  const canMove = !isLodging && slot.type !== 'lodging';
+  const isPlace = place && isWishPlace(place);
+  const isLodging = place && isWishLodging(place);
+  const canStash = !isLodging && slot.type !== 'lodging';
 
   const [editingClosed, setEditingClosed] = useState(false);
   const [draftDays, setDraftDays] = useState<string[]>([]);
+
+  if (!place) return null;
 
   const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
     (place as WishPlace).roadAddress || place.address || place.name
@@ -92,50 +247,16 @@ function PlaceSlotCard({
               ? 'bg-amber-50 border-amber-200'
               : 'bg-white border-gray-200',
     )}>
-      {/* Time row */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-500">
-          {slot.time} – {slot.endTime}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {slot.warning && (
-            <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
-              <span>⚠️</span>
-              <span>{slot.warning}</span>
-            </span>
-          )}
-          {canMove && (
-            <div className="flex gap-0.5">
-              <button
-                type="button"
-                onClick={onMoveUp}
-                disabled={!onMoveUp}
-                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                title="위로 이동"
-              >
-                ▲
-              </button>
-              <button
-                type="button"
-                onClick={onMoveDown}
-                disabled={!onMoveDown}
-                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                title="아래로 이동"
-              >
-                ▼
-              </button>
-              <button
-                type="button"
-                onClick={onClearToStash}
-                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors text-xs"
-                title="보관함으로 이동"
-              >
-                📦
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Time row + actions */}
+      <SlotTimeRow
+        slot={slot}
+        currentDate={currentDate}
+        dayDates={dayDates}
+        canStash={canStash}
+        onUpdateTime={onUpdateTime}
+        onClearToStash={onClearToStash}
+        onDelete={onDelete}
+      />
 
       {/* Place name + category badge */}
       <div className="flex items-start gap-2 mb-1">
@@ -270,14 +391,18 @@ function PlaceSlotCard({
 
 function EmptySlotCard({
   slot,
-  onRequestRecommend,
-  onAddToWishlist,
+  currentDate,
+  dayDates,
+  onUpdateTime,
+  onDelete,
   onSearchSelect,
   regionName = '',
 }: {
   slot: ScheduledSlot;
-  onRequestRecommend: (slot: ScheduledSlot) => void;
-  onAddToWishlist?: (slotTime: string, category: 'attraction' | 'restaurant') => void;
+  currentDate: string;
+  dayDates?: DayDateOption[];
+  onUpdateTime?: (date: string, time: string, endTime: string) => void;
+  onDelete?: () => void;
   onSearchSelect?: (place: KakaoPlace, category: PlaceCategory) => void;
   regionName?: string;
 }) {
@@ -285,11 +410,14 @@ function EmptySlotCard({
 
   return (
     <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-400">
-          {slot.time} – {slot.endTime}
-        </span>
-      </div>
+      <SlotTimeRow
+        slot={slot}
+        currentDate={currentDate}
+        dayDates={dayDates}
+        muted
+        onUpdateTime={onUpdateTime}
+        onDelete={onDelete}
+      />
 
       {showSearch && onSearchSelect ? (
         <SlotPlaceSearch
@@ -310,13 +438,6 @@ function EmptySlotCard({
                 🔍 직접 검색
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onRequestRecommend(slot)}
-              className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              ✨ AI 추천 받기
-            </button>
           </div>
         </>
       )}
@@ -324,7 +445,8 @@ function EmptySlotCard({
   );
 }
 
-export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, onMoveUp, onMoveDown, onClearToStash, onUpdateClosedDays, onSearchSelect, regionName }: SlotCardProps) {
+export default function SlotCard({ slot, currentDate, dayDates, onRequestRecommend, onUpdateTime, onDelete, onClearToStash, onUpdateClosedDays, onSearchSelect, regionName }: SlotCardProps) {
+  void onRequestRecommend;
   return (
     <div>
       {(slot.travelMinFromPrev ?? 0) > 0 && (
@@ -333,13 +455,23 @@ export default function SlotCard({ slot, onRequestRecommend, onAddToWishlist, on
       {slot.type === 'empty' ? (
         <EmptySlotCard
           slot={slot}
-          onRequestRecommend={onRequestRecommend}
-          onAddToWishlist={onAddToWishlist}
+          currentDate={currentDate}
+          dayDates={dayDates}
+          onUpdateTime={onUpdateTime}
+          onDelete={onDelete}
           onSearchSelect={onSearchSelect}
           regionName={regionName}
         />
       ) : (
-        <PlaceSlotCard slot={slot} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onClearToStash={onClearToStash} onUpdateClosedDays={onUpdateClosedDays} />
+        <PlaceSlotCard
+          slot={slot}
+          currentDate={currentDate}
+          dayDates={dayDates}
+          onUpdateTime={onUpdateTime}
+          onDelete={onDelete}
+          onClearToStash={onClearToStash}
+          onUpdateClosedDays={onUpdateClosedDays}
+        />
       )}
     </div>
   );

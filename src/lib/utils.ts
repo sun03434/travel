@@ -6,15 +6,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** 슬롯을 food / travel / lodging 그룹으로 분류 (교환 제한에 사용) */
-export function slotGroup(slot: ScheduledSlot): 'food' | 'travel' | 'lodging' {
-  // type 필드 또는 place의 checkInDate 존재로 숙소 판별 (AI가 type:'wish'로 잘못 반환하는 경우 대비)
-  if (slot.type === 'lodging' || (slot.place && 'checkInDate' in slot.place)) return 'lodging';
-  if (slot.place && 'category' in slot.place) {
-    return (slot.place as WishPlace).category === 'restaurant' ? 'food' : 'travel';
-  }
-  const hour = parseInt(slot.time.split(':')[0], 10);
-  return hour === 12 || hour === 18 ? 'food' : 'travel';
+/** 슬롯을 시작 시간(time) 오름차순으로 정렬한 새 배열 반환. "HH:mm"은 zero-padded라 문자열 비교로 충분. */
+export function sortSlotsByTime(slots: ScheduledSlot[]): ScheduledSlot[] {
+  return [...slots].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+}
+
+/** "HH:mm"에 분을 더한 "HH:mm" 반환 (23:59 상한). */
+export function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map((n) => parseInt(n, 10));
+  const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
 export function formatDate(dateStr: string): string {

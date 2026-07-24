@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Region, TravelPeriod, WishPlace, WishLodging, KakaoPlace, PlaceCategory } from '@/types/plan';
-import { generateId } from '@/lib/utils';
+import type { Region, TravelPeriod, WishPlace, WishLodging, KakaoPlace, PlaceCategory, TravelPlan, ScheduledDay, ScheduledSlot } from '@/types/plan';
+import { generateId, getDatesInRange, getDayLabel, addMinutesToTime } from '@/lib/utils';
 import { savePlan } from '@/lib/storage';
 import RegionPicker from '@/components/planner/RegionPicker';
 import PeriodPicker from '@/components/planner/PeriodPicker';
@@ -80,6 +80,34 @@ export default function PlannerPage() {
     );
   }
 
+  // AI 없이 빈 틀만 생성: 기간대로 날짜별 빈 슬롯 1개씩 + 등록한 장소는 보관함에 담아 수동 배치
+  function handleManualSkeleton() {
+    if (!region || !period) return;
+    const planId = generateId();
+    const dates = getDatesInRange(period.startDate, period.endDate);
+    const schedule: ScheduledDay[] = dates.map((date, idx) => {
+      const start = idx === 0 ? (period.startTime || '09:00') : '09:00';
+      const slot: ScheduledSlot = {
+        id: generateId(),
+        time: start,
+        endTime: addMinutesToTime(start, 90),
+        type: 'empty',
+      };
+      return { date, dayLabel: getDayLabel(date, idx), slots: [slot], naverRouteUrl: '' };
+    });
+    const plan: TravelPlan = {
+      id: planId,
+      createdAt: new Date().toISOString(),
+      region,
+      period,
+      wishlist: { attractions, restaurants, lodgings },
+      stash: [...attractions, ...restaurants, ...lodgings],
+      schedule,
+    };
+    savePlan(plan);
+    router.push(`/schedule/${planId}`);
+  }
+
   async function handleGenerate() {
     if (!region || !period) return;
     setGenerating(true);
@@ -119,7 +147,7 @@ export default function PlannerPage() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-900">여행 플래너</h1>
-            <p className="text-xs text-gray-500">가고 싶은 곳 등록 → AI 동선 최적화</p>
+            <p className="text-xs text-gray-500">AI 동선 최적화 또는 빈 틀에 직접 작성</p>
           </div>
           <a href="/history" className="text-sm text-blue-600 hover:underline">내 플랜 목록</a>
         </div>
@@ -203,23 +231,33 @@ export default function PlannerPage() {
                 </span>
               )}
             </div>
-            <button
-              onClick={handleGenerate}
-              disabled={!canGenerate || generating}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors min-w-[140px] text-center"
-            >
-              {generating ? (
-                <span className="flex items-center gap-2 justify-center">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  일정 생성 중…
-                </span>
-              ) : (
-                '✨ AI 일정 생성'
-              )}
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleManualSkeleton}
+                disabled={!canGenerate || generating}
+                className="px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors text-center"
+                title="AI 없이 빈 일정 틀만 만들고 직접 작성합니다"
+              >
+                ✏️ 직접 짜기
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate || generating}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors min-w-[140px] text-center"
+              >
+                {generating ? (
+                  <span className="flex items-center gap-2 justify-center">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    일정 생성 중…
+                  </span>
+                ) : (
+                  '✨ AI 일정 생성'
+                )}
+              </button>
+            </div>
           </div>
           {error && <p className="text-center text-red-500 text-sm mt-2">{error}</p>}
         </div>

@@ -6,7 +6,7 @@ import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay, K
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
 import { sharePlan } from '@/lib/shareUrl';
-import { generateId, weatherCodeToDescription, weatherCodeToEmoji, slotGroup, getClosedDayWarning } from '@/lib/utils';
+import { generateId, weatherCodeToDescription, sortSlotsByTime, addMinutesToTime, getClosedDayWarning } from '@/lib/utils';
 import { kakaoPlaceToWishPlace } from '@/lib/kakao';
 import DayTimeline from '@/components/schedule/DayTimeline';
 import StashPanel from '@/components/schedule/StashPanel';
@@ -138,57 +138,83 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     setPlan(updated);
   }
 
-  function handleReorderSlot(_dayDate: string, slotId: string, direction: 'up' | 'down') {
-    if (!plan) return;
+  // 슬롯을 시간순 정렬하고 경로 URL을 재생성한다. travelMinFromPrev는 초기화 후 commit에서 재계산된다.
+  function rebuildDay(day: ScheduledDay): ScheduledDay {
+    const slots = sortSlotsByTime(day.slots).map((s) => ({ ...s, travelMinFromPrev: undefined }));
+    return {
+      ...day,
+      slots,
+      naverRouteUrl: buildNaverWebRouteUrl(slots),
+      naverAppRouteUrl: buildNaverAppRouteUrl(slots),
+    };
+  }
 
-    // Flat list across all days
-    const flat: { dayIdx: number; slotIdx: number; slot: ScheduledSlot }[] = [];
-    plan.schedule.forEach((day, di) =>
-      day.slots.forEach((slot, si) => flat.push({ dayIdx: di, slotIdx: si, slot }))
-    );
-
-    const curFlatIdx = flat.findIndex((f) => f.slot.id === slotId);
-    if (curFlatIdx === -1) return;
-
-    const group = slotGroup(flat[curFlatIdx].slot);
-
-    // 같은 카테고리 그룹(food↔food, travel↔travel)인 가장 가까운 슬롯 탐색
-    let tgtFlatIdx = direction === 'up' ? curFlatIdx - 1 : curFlatIdx + 1;
-    while (tgtFlatIdx >= 0 && tgtFlatIdx < flat.length && slotGroup(flat[tgtFlatIdx].slot) !== group) {
-      tgtFlatIdx += direction === 'up' ? -1 : 1;
-    }
-    if (tgtFlatIdx < 0 || tgtFlatIdx >= flat.length) return;
-    if (slotGroup(flat[tgtFlatIdx].slot) !== group) return;
-
-    const a = flat[curFlatIdx];
-    const b = flat[tgtFlatIdx];
-
-    const aDate = plan.schedule[a.dayIdx].date;
-    const bDate = plan.schedule[b.dayIdx].date;
-    const warningForA = b.slot.place ? getClosedDayWarning(b.slot.place, aDate) : undefined;
-    const warningForB = a.slot.place ? getClosedDayWarning(a.slot.place, bDate) : undefined;
-
-    const affectedDays = new Set([a.dayIdx, b.dayIdx]);
-
-    const updatedSchedule = plan.schedule.map((day, di) => {
-      const newSlots = day.slots.map((slot, si) => {
-        if (di === a.dayIdx && si === a.slotIdx)
-          return { ...slot, place: b.slot.place, type: b.slot.type, warning: warningForA };
-        if (di === b.dayIdx && si === b.slotIdx)
-          return { ...slot, place: a.slot.place, type: a.slot.type, warning: warningForB };
-        return slot;
-      });
-      if (!affectedDays.has(di)) return { ...day, slots: newSlots };
-      return {
-        ...day,
-        slots: newSlots,
-        naverAppRouteUrl: buildNaverAppRouteUrl(newSlots),
-      };
-    });
-
-    const updated = { ...plan, schedule: updatedSchedule };
+  // 구조 변경(추가/삭제/시간·날짜 편집)을 저장하고 이동시간을 다시 계산한다.
+  async function commitStructural(updated: TravelPlan) {
     savePlan(updated);
     setPlan(updated);
+    const schedule = await fetchTravelTimes(updated.schedule);
+    const withTimes = { ...updated, schedule };
+    savePlan(withTimes);
+    setPlan(withTimes);
+  }
+
+  function handleUpdateSlotTime(dayDate: string, slotId: string, date: string, time: string, endTime: string) {
+    if (!plan) return;
+    const srcDay = plan.schedule.find((d) => d.date === dayDate);
+    const slot = srcDay?.slots.find((s) => s.id === slotId);
+    if (!slot) return;
+
+    // 날짜 이동은 기존 일자로만 허용 (여행 기간 밖 날짜 방지)
+    const targetDate = plan.schedule.some((d) => d.date === date) ? date : dayDate;
+    const updatedSlot: ScheduledSlot = {
+      ...slot,
+      time,
+      endTime,
+      warning: slot.place ? getClosedDayWarning(slot.place, targetDate) : undefined,
+    };
+
+    const schedule = plan.schedule.map((d) => {
+      if (d.date === dayDate && targetDate === dayDate) {
+        return rebuildDay({ ...d, slots: d.slots.map((s) => (s.id === slotId ? updatedSlot : s)) });
+      }
+      if (d.date === dayDate) {
+        return rebuildDay({ ...d, slots: d.slots.filter((s) => s.id !== slotId) });
+      }
+      if (d.date === targetDate) {
+        return rebuildDay({ ...d, slots: [...d.slots, updatedSlot] });
+      }
+      return d;
+    });
+
+    commitStructural({ ...plan, schedule });
+  }
+
+  function handleAddSlot(dayDate: string) {
+    if (!plan) return;
+    const day = plan.schedule.find((d) => d.date === dayDate);
+    if (!day) return;
+    // 마지막 슬롯 종료 시간 뒤에 배치 (없으면 09:00)
+    const lastEnd = day.slots.reduce((max, s) => (s.endTime > max ? s.endTime : max), '');
+    const start = lastEnd || '09:00';
+    const newSlot: ScheduledSlot = {
+      id: generateId(),
+      time: start,
+      endTime: addMinutesToTime(start, 90),
+      type: 'empty',
+    };
+    const schedule = plan.schedule.map((d) =>
+      d.date === dayDate ? rebuildDay({ ...d, slots: [...d.slots, newSlot] }) : d
+    );
+    commitStructural({ ...plan, schedule });
+  }
+
+  function handleDeleteSlot(dayDate: string, slotId: string) {
+    if (!plan) return;
+    const schedule = plan.schedule.map((d) =>
+      d.date === dayDate ? rebuildDay({ ...d, slots: d.slots.filter((s) => s.id !== slotId) }) : d
+    );
+    commitStructural({ ...plan, schedule });
   }
 
   function handleClearToStash(dayDate: string, slotId: string) {
@@ -341,15 +367,16 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-20">
-        {plan.schedule.map((day, dayIdx) => (
+        {plan.schedule.map((day) => (
           <DayTimeline
             key={day.date}
             day={day}
-            dayIndex={dayIdx}
-            totalDays={plan.schedule.length}
+            dayDates={plan.schedule.map((d) => ({ date: d.date, label: d.dayLabel }))}
             onRequestRecommend={() => {}}
             onRecommendSelect={handleRecommendSelect}
-            onReorderSlot={handleReorderSlot}
+            onUpdateSlotTime={handleUpdateSlotTime}
+            onAddSlot={handleAddSlot}
+            onDeleteSlot={handleDeleteSlot}
             onClearToStash={handleClearToStash}
             onUpdateClosedDays={handleUpdateClosedDays}
             onSearchSelect={handleSearchSelect}
