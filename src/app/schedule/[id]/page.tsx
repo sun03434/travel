@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay, KakaoPlace, PlaceCategory } from '@/types/plan';
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
-import { sharePlan } from '@/lib/shareUrl';
+import { sharePlan, buildShareUrl } from '@/lib/shareUrl';
 import { generateId, weatherCodeToDescription, sortSlotsByTime, addMinutesToTime, getClosedDayWarning } from '@/lib/utils';
 import { kakaoPlaceToWishPlace } from '@/lib/kakao';
 import DayTimeline from '@/components/schedule/DayTimeline';
@@ -74,6 +74,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const router = useRouter();
   const [plan, setPlan] = useState<TravelPlan | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
+  const [shareFallbackUrl, setShareFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = getPlan(id);
@@ -330,6 +331,12 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   async function handleShare() {
     if (!plan) return;
     const result = await sharePlan(plan);
+    if (result === 'cancelled') return;
+    if (result === 'error') {
+      // 공유/클립보드 모두 실패 → 링크를 직접 노출해 수동 복사하도록
+      setShareFallbackUrl(buildShareUrl(plan));
+      return;
+    }
     setShareStatus(result);
     setTimeout(() => setShareStatus('idle'), 3000);
   }
@@ -347,6 +354,33 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* 공유 폴백: 공유/클립보드 실패 시 링크 직접 노출 */}
+      {shareFallbackUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setShareFallbackUrl(null)}
+        >
+          <div className="bg-white rounded-2xl w-full max-w-md p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold text-gray-900">공유 링크</p>
+              <button
+                onClick={() => setShareFallbackUrl(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">아래 링크를 길게 눌러 복사하세요.</p>
+            <textarea
+              readOnly
+              value={shareFallbackUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-full h-24 text-xs border border-gray-300 rounded-lg p-2 bg-gray-50 break-all resize-none"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">

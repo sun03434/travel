@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import type { TravelPlan, ScheduledSlot, WishPlace } from '@/types/plan';
 import { decodePlan } from '@/lib/shareUrl';
 import { savePlan, getPlan } from '@/lib/storage';
-import { buildNaverRouteUrl } from '@/lib/naverRoute';
+import { buildNaverRouteUrl, buildNaverAppRouteUrl } from '@/lib/naverRoute';
 import { weatherCodeToDescription, weatherCodeToEmoji } from '@/lib/utils';
 import DayTimeline from '@/components/schedule/DayTimeline';
 
@@ -24,12 +24,13 @@ function ShareContent() {
     const decoded = decodePlan(d);
     if (!decoded) { setError(true); return; }
 
-    // Rebuild naverRouteUrl for each day
+    // 공유 URL 크기 축소를 위해 인코딩 시 제거된 경로 URL을 재생성
     const enriched = {
       ...decoded,
       schedule: decoded.schedule.map((day) => ({
         ...day,
         naverRouteUrl: buildNaverRouteUrl(day.slots),
+        naverAppRouteUrl: buildNaverAppRouteUrl(day.slots),
       })),
     };
     setPlan(enriched);
