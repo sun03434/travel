@@ -49,11 +49,12 @@ export async function sharePlan(plan: TravelPlan): Promise<ShareResult> {
       await navigator.share({ title: `여행 플랜 - ${plan.region.displayName}`, url });
       return 'shared';
     } catch (e) {
-      // 사용자가 공유 시트를 닫은 경우는 오류가 아니라 취소로 처리
-      if (e instanceof DOMException && (e.name === 'AbortError' || e.name === 'NotAllowedError')) {
+      // AbortError만 "사용자가 공유 시트를 닫음"으로 간주해 조용히 종료.
+      // NotAllowedError(삼성인터넷 등에서 공유 차단 시 자주 발생) 등 나머지는 반드시 클립보드로 폴백.
+      if (e instanceof DOMException && e.name === 'AbortError') {
         return 'cancelled';
       }
-      // 그 외(페이로드 과대 등)는 클립보드 폴백으로 진행
+      // 그 외(NotAllowedError·페이로드 과대 등)는 아래 클립보드 폴백으로 진행
     }
   }
 
