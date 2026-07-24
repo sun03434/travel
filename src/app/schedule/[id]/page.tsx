@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { TravelPlan, ScheduledSlot, WishPlace, WishLodging, ScheduledDay, KakaoPlace, PlaceCategory } from '@/types/plan';
 import { getPlan, savePlan } from '@/lib/storage';
 import { buildNaverAppRouteUrl, buildNaverWebRouteUrl } from '@/lib/naverRoute';
-import { sharePlan, buildShareUrl } from '@/lib/shareUrl';
+import { sharePlan } from '@/lib/shareUrl';
 import { generateId, weatherCodeToDescription, sortSlotsByTime, addMinutesToTime, getClosedDayWarning } from '@/lib/utils';
 import { kakaoPlaceToWishPlace } from '@/lib/kakao';
 import DayTimeline from '@/components/schedule/DayTimeline';
@@ -330,11 +330,11 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
   async function handleShare() {
     if (!plan) return;
-    const result = await sharePlan(plan);
+    const { result, url } = await sharePlan(plan);
     if (result === 'cancelled') return;
     if (result === 'error') {
       // 공유/클립보드 모두 실패 → 링크를 직접 노출해 수동 복사하도록
-      setShareFallbackUrl(buildShareUrl(plan));
+      setShareFallbackUrl(url);
       return;
     }
     setShareStatus(result);
